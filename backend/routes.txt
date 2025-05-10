@@ -1,0 +1,37 @@
+# NiveshPath API Routes
+
+## Authentication Routes
+- POST /api/auth/register - Register a new user
+- POST /api/auth/login - Login user
+- GET /api/auth/me - Get current user (requires authentication)
+
+## User Routes
+- GET /api/user/profile - Get user profile (requires authentication)
+- PUT /api/user/profile - Update user profile (requires authentication)
+
+## Onboarding Routes
+- POST /api/onboarding - Submit onboarding information (requires authentication)
+
+## Course Routes
+- GET /api/courses - Get all courses (public route)
+- GET /api/courses/:id - Get course by ID (public route)
+- POST /api/courses/:id/progress - Update course progress (requires authentication)
+- GET /api/courses/:id/progress - Get user's progress for a specific course (requires authentication)
+- GET /api/courses/user/progress - Get all user's course progress (requires authentication)
+
+## Chatbot Routes
+- POST /api/chatbot/query - Submit a query to the chatbot (requires authentication)
+- GET /api/chatbot/history - Get chat history (requires authentication)
+- GET /api/chatbot/session/:sessionId - Get a specific chat session (requires authentication)
+- POST /api/chatbot/feedback/:sessionId - Submit feedback for a chat session (requires authentication)
+
+## External API Routes (Based on documentation)
+- GET /api/external/rbi-news - Get updates from the RBI and other financial news sources
+- GET /api/external/markets - Fetch stock market updates (NSE/BSE)
+- GET /api/external/currency - Access live currency exchange data
+
+## Tools Routes (Mentioned in server.js but not found in routes folder)
+- These routes are configured in server.js but the implementation was not found
+
+## Health Check
+- GET /health - Check if the API is running
