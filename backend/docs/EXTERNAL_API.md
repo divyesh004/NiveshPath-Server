@@ -1,55 +1,55 @@
-# बाहरी API इंटीग्रेशन गाइड
+# External API Integration Guide
 
 ## Yahoo Finance API
 
-NiveshPath सर्वर Yahoo Finance API का उपयोग करके रियल-टाइम स्टॉक मार्केट और करेंसी एक्सचेंज डेटा प्राप्त करता है। यह इंटीग्रेशन `external.controller.js` फ़ाइल में लागू किया गया है।
+NiveshPath server obtains real-time stock market and currency exchange data using the Yahoo Finance API. This integration is implemented in the `external.controller.js` file.
 
-### सेटअप निर्देश
+### Setup Instructions
 
-1. आवश्यक पैकेज इंस्टॉल करें:
+1. Install the required package:
    ```bash
    npm install yahoo-finance2
    ```
 
-2. `.env` फ़ाइल में कोई API कुंजी की आवश्यकता नहीं है, क्योंकि Yahoo Finance API मुफ्त है और सार्वजनिक रूप से उपलब्ध है।
+2. No API key is required in the `.env` file, as the Yahoo Finance API is free and publicly available.
 
-### उपयोग
+### Usage
 
-#### स्टॉक मार्केट अपडेट
+#### Stock Market Updates
 
 ```javascript
-// स्टॉक मार्केट अपडेट प्राप्त करें
+// Get stock market updates
 GET /api/external/markets
 ```
 
-यह एंडपॉइंट निम्नलिखित डेटा प्रदान करता है:
-- NSE (NIFTY 50) और BSE (SENSEX) इंडेक्स मूल्य, परिवर्तन और प्रतिशत परिवर्तन
-- टॉप गेनर्स (3 स्टॉक्स)
-- टॉप लूजर्स (3 स्टॉक्स)
+This endpoint provides the following data:
+- NSE (NIFTY 50) and BSE (SENSEX) index values, changes, and percentage changes
+- Top gainers (3 stocks)
+- Top losers (3 stocks)
 
-#### करेंसी एक्सचेंज डेटा
+#### Currency Exchange Data
 
 ```javascript
-// करेंसी एक्सचेंज डेटा प्राप्त करें
+// Get currency exchange data
 GET /api/external/currency
 ```
 
-यह एंडपॉइंट INR के संदर्भ में विभिन्न मुद्राओं के लिए विनिमय दरें प्रदान करता है (USD, EUR, GBP, JPY, आदि)।
+This endpoint provides exchange rates for various currencies in reference to INR (USD, EUR, GBP, JPY, etc.).
 
-### एरर हैंडलिंग
+### Error Handling
 
-API कॉल विफल होने पर, सिस्टम फॉलबैक डेटा प्रदान करता है ताकि एप्लिकेशन काम करना जारी रखे। फॉलबैक डेटा में एक संदेश शामिल होता है जो उपयोगकर्ता को सूचित करता है कि लाइव डेटा अनुपलब्ध है।
+When API calls fail, the system provides fallback data so that the application continues to function. The fallback data includes a message that informs the user that live data is unavailable.
 
-### रेट लिमिट्स
+### Rate Limits
 
-Yahoo Finance API पर रेट लिमिट्स हैं। अत्यधिक अनुरोधों से बचने के लिए, हमने निम्नलिखित उपाय किए हैं:
+The Yahoo Finance API has rate limits. To avoid excessive requests, we have implemented the following measures:
 
-1. API कॉल के लिए 10 सेकंड का टाइमआउट सेट किया गया है
-2. एक ही अनुरोध में कई स्टॉक्स/करेंसी पेयर्स के लिए डेटा प्राप्त करने के लिए बैचिंग का उपयोग किया गया है
-3. विस्तृत लॉगिंग जोड़ी गई है ताकि किसी भी समस्या का निदान किया जा सके
+1. A 10-second timeout is set for API calls
+2. Batching is used to retrieve data for multiple stocks/currency pairs in a single request
+3. Detailed logging has been added to diagnose any issues
 
-### नोट्स
+### Notes
 
-- Yahoo Finance API अनौपचारिक है और Yahoo द्वारा आधिकारिक रूप से समर्थित नहीं है
-- भविष्य में API में परिवर्तन हो सकते हैं, जिससे कोड अपडेट की आवश्यकता हो सकती है
-- उत्पादन उपयोग के लिए, एक वैकल्पिक या आधिकारिक API पर विचार करें जैसे कि Alpha Vantage, Finnhub, या NSE/BSE की आधिकारिक API
+- The Yahoo Finance API is unofficial and not officially supported by Yahoo
+- Future changes to the API may occur, which may require code updates
+- For production use, consider an alternative or official API such as Alpha Vantage, Finnhub, or the official APIs of NSE/BSE

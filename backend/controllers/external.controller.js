@@ -11,7 +11,7 @@ exports.getRBINews = async (req, res) => {
     // You need to get an API key from https://newsapi.org and add it to your .env file
     const apiKey = process.env.NEWS_API_KEY || 'your-api-key-here';
     
-    // विस्तृत लॉगिंग जोड़ें
+    // Add detailed logging
     console.log('Attempting to fetch RBI news with API key configuration status:', apiKey !== 'your-api-key-here' ? 'Configured' : 'Not Configured');
     
     // Check if API key is properly configured
@@ -31,7 +31,7 @@ exports.getRBINews = async (req, res) => {
     
     let response;
     try {
-      // टाइमआउट सेट करें ताकि लंबे समय तक प्रतीक्षा न करनी पड़े
+      // Set timeout to avoid long waiting periods
       response = await axios.get(rbiUrl, { timeout: 10000 });
       console.log('NewsAPI response status:', response.status);
       console.log('NewsAPI response contains articles:', response.data && Array.isArray(response.data.articles) ? 'Yes' : 'No');
@@ -86,15 +86,15 @@ exports.getRBINews = async (req, res) => {
     if (!news.length) {
       console.log('No news found from NewsAPI, attempting to fetch from alternative source...');
       try {
-        // यहां हम RBI की आधिकारिक वेबसाइट से डेटा प्राप्त करने का प्रयास करेंगे
-        // नोट: वास्तविक उत्पादन में, आप axios और cheerio का उपयोग करके वेब स्क्रैपिंग कर सकते हैं
-        // यहां हम केवल एक बेहतर फॉलबैक डेटा प्रदान कर रहे हैं
+        // Here we will attempt to retrieve data from the RBI's official website
+        // Note: In actual production, you can use axios and cheerio for web scraping
+        // Here we are only providing better fallback data
         
         const alternativeNews = await fetchAlternativeRBINews();
         if (alternativeNews && alternativeNews.length > 0) {
           news = alternativeNews;
         } else {
-          // अगर वैकल्पिक स्रोत भी विफल हो जाता है, तो फॉलबैक डेटा का उपयोग करें
+          // If the alternative source also fails, use fallback data
           console.log('Alternative source also failed, using fallback data...');
           return res.status(200).json({
             success: true,
@@ -162,14 +162,14 @@ const getDefaultNewsData = (source) => {
  */
 const fetchAlternativeRBINews = async () => {
   try {
-    // वास्तविक उत्पादन में, यहां RBI वेबसाइट से स्क्रैपिंग कोड होगा
-    // अभी के लिए, हम एक बेहतर फॉलबैक डेटा प्रदान कर रहे हैं
+    // In actual production, there would be scraping code from the RBI website here
+    // For now, we are providing better fallback data
     
-    // RBI की आधिकारिक वेबसाइट से डेटा प्राप्त करने का प्रयास
+    // Attempting to retrieve data from the RBI's official website
     console.log('Attempting to fetch news directly from RBI website...');
     
-    // यहां हम केवल एक बेहतर फॉलबैक डेटा प्रदान कर रहे हैं
-    // वास्तविक उत्पादन में, आप axios और cheerio का उपयोग करके वेब स्क्रैपिंग कर सकते हैं
+    // Here we are only providing better fallback data
+    // In actual production, you can use axios and cheerio for web scraping
     return [
       {
         id: 1,
@@ -213,13 +213,13 @@ const fetchAlternativeRBINews = async () => {
  */
 exports.getMarketUpdates = async (req, res) => {
   try {
-    // विस्तृत लॉगिंग जोड़ें
+    // Add detailed logging
     console.log('Attempting to fetch real-time market data from Yahoo Finance API');
     
-    // Yahoo Finance API के लिए पैकेज इम्पोर्ट करें
+    // Import package for Yahoo Finance API
     let yahooFinance;
     try {
-      // पैकेज को इम्पोर्ट करने का प्रयास करें
+      // Attempt to import the package
       yahooFinance = require('yahoo-finance2').default;
       console.log('Yahoo Finance package loaded successfully for market data');
     } catch (packageError) {
@@ -228,21 +228,21 @@ exports.getMarketUpdates = async (req, res) => {
       throw new Error('Yahoo Finance package not installed. Run: npm install yahoo-finance2');
     }
     
-    // API कॉल के लिए टाइमआउट सेट करें - बढ़ाया गया टाइमआउट
+    // Set timeout for API call - increased timeout
     const options = { timeout: 30000 };
     
-    // NSE और BSE इंडेक्स के लिए सिंबल (Yahoo Finance पर उपलब्ध)
-    const niftySymbol = '^NSEI'; // NIFTY 50 का सिंबल
-    const sensexSymbol = '^BSESN'; // SENSEX का सिंबल
+    // Symbols for NSE and BSE indices (available on Yahoo Finance)
+    const niftySymbol = '^NSEI'; // Symbol for NIFTY 50
+    const sensexSymbol = '^BSESN'; // Symbol for SENSEX
     
-    // टॉप स्टॉक्स के लिए सिंबल (भारतीय कंपनियां)
+    // Symbols for top stocks (Indian companies)
     const topStocks = ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS', 
                       'TATASTEEL.NS', 'SUNPHARMA.NS', 'BAJFINANCE.NS', 'AXISBANK.NS', 'WIPRO.NS'];
     
-    // सभी स्टॉक्स के लिए डेटा प्राप्त करें
+    // Get data for all stocks
     console.log('Fetching data for NSE and BSE indices and top stocks...');
     
-    // प्रमुख इंडेक्स के लिए डेटा प्राप्त करें - अलग-अलग प्रॉमिस के साथ और बेहतर एरर हैंडलिंग
+    // Get data for major indices - with separate promises and better error handling
     let niftyData, sensexData;
     try {
       console.log('Fetching NIFTY 50 data...');
@@ -250,7 +250,7 @@ exports.getMarketUpdates = async (req, res) => {
       console.log('Successfully fetched NIFTY 50 data');
     } catch (niftyError) {
       console.error('Error fetching NIFTY 50 data:', niftyError.message);
-      // फॉलबैक डेटा का उपयोग करें
+      // Use fallback data
       niftyData = {
         regularMarketPrice: 22456.80,
         regularMarketChange: 145.30,
@@ -265,7 +265,7 @@ exports.getMarketUpdates = async (req, res) => {
       console.log('Successfully fetched SENSEX data');
     } catch (sensexError) {
       console.error('Error fetching SENSEX data:', sensexError.message);
-      // फॉलबैक डेटा का उपयोग करें
+      // Use fallback data
       sensexData = {
         regularMarketPrice: 73890.45,
         regularMarketChange: 412.75,
@@ -274,14 +274,14 @@ exports.getMarketUpdates = async (req, res) => {
       console.log('Using fallback data for SENSEX');
     }
     
-    // टॉप स्टॉक्स के लिए डेटा प्राप्त करें - प्रत्येक स्टॉक के लिए अलग-अलग प्रॉमिस
+    // Get data for top stocks - separate promise for each stock
     console.log('Fetching data for top stocks...');
     const stockDataPromises = topStocks.map(symbol => {
       console.log(`Fetching data for stock: ${symbol}`);
       return yahooFinance.quote(symbol, options)
         .catch(err => {
           console.error(`Error fetching data for ${symbol}:`, err.message);
-          // एरर होने पर एक डिफॉल्ट ऑब्जेक्ट रिटर्न करें
+          // Return a default object when an error occurs
           return {
             symbol: symbol,
             shortName: symbol.replace('.NS', ''),
@@ -290,18 +290,18 @@ exports.getMarketUpdates = async (req, res) => {
         });
     });
     
-    // सभी स्टॉक डेटा प्रॉमिस को एक साथ रिज़ॉल्व करें
+    // Resolve all stock data promises together
     const stocksDataResults = await Promise.all(stockDataPromises);
     
-    // null वैल्यू को फ़िल्टर करें और वैलिड स्टॉक डेटा प्राप्त करें
+    // Filter null values and get valid stock data
     const stocksData = stocksDataResults.filter(data => data !== null);
     
     console.log(`Successfully received data for ${stocksData.length} out of ${topStocks.length} stocks`);
     
-    // यदि कोई भी स्टॉक डेटा नहीं मिला, तो डिफॉल्ट डेटा का उपयोग करें
+    // If no stock data is found, use default data
     if (!stocksData || stocksData.length === 0) {
       console.warn('No valid stock data received, using default stock data');
-      // डिफॉल्ट स्टॉक डेटा तैयार करें
+      // Prepare default stock data
       for (let i = 0; i < topStocks.length; i++) {
         stocksData.push({
           symbol: topStocks[i],
@@ -311,16 +311,16 @@ exports.getMarketUpdates = async (req, res) => {
       }
     }
     
-    // डेटा को सॉर्ट करें (गेनर्स और लूजर्स)
+    // Sort the data (gainers and losers)
     const sortedStocks = [...stocksData];
     sortedStocks.sort((a, b) => {
-      // सुनिश्चित करें कि regularMarketChangePercent मौजूद है
+      // Ensure that regularMarketChangePercent exists
       const aChange = a.regularMarketChangePercent || 0;
       const bChange = b.regularMarketChangePercent || 0;
       return bChange - aChange;
     });
     
-    // टॉप गेनर्स और लूजर्स निकालें
+    // Extract top gainers and losers
     const topGainers = sortedStocks.slice(0, 3).map(stock => ({
       symbol: stock.symbol.replace('.NS', ''),
       name: stock.shortName || stock.longName || stock.symbol.replace('.NS', ''),
@@ -333,7 +333,7 @@ exports.getMarketUpdates = async (req, res) => {
       change: parseFloat((stock.regularMarketChangePercent || 0).toFixed(2))
     }));
     
-    // रिस्पॉन्स डेटा तैयार करें
+    // Prepare response data
     const marketData = {
       nse: {
         index: 'NIFTY 50',
@@ -365,7 +365,7 @@ exports.getMarketUpdates = async (req, res) => {
     console.error('Error fetching market updates:', error.message);
     console.error('Detailed error:', error);
     
-    // फॉलबैक डेटा प्रदान करें जब API कॉल विफल हो जाए
+    // Provide fallback data when API call fails
     const fallbackData = {
       nse: {
         index: 'NIFTY 50',
@@ -408,13 +408,13 @@ exports.getMarketUpdates = async (req, res) => {
  */
 exports.getCurrencyExchange = async (req, res) => {
   try {
-    // विस्तृत लॉगिंग जोड़ें
+    // Add detailed logging
     console.log('Attempting to fetch real-time currency exchange data');
     
-    // Yahoo Finance API के लिए पैकेज इम्पोर्ट करें
+    // Import package for Yahoo Finance API
     let yahooFinance;
     try {
-      // पैकेज को इम्पोर्ट करने का प्रयास करें
+      // Attempt to import the package
       yahooFinance = require('yahoo-finance2').default;
       console.log('Yahoo Finance package loaded successfully');
     } catch (packageError) {
@@ -423,11 +423,11 @@ exports.getCurrencyExchange = async (req, res) => {
       throw new Error('Yahoo Finance package not installed. Run: npm install yahoo-finance2');
     }
     
-    // API कॉल के लिए टाइमआउट सेट करें - बढ़ाया गया टाइमआउट
+    // Set timeout for API call - increased timeout
     const options = { timeout: 30000 };
     
-    // प्रमुख करेंसी पेयर्स के लिए सिंबल (INR के संदर्भ में)
-    // सिंबल फॉर्मेट को सुनिश्चित करें - Yahoo Finance API के अनुसार
+    // Symbols for major currency pairs (in reference to INR)
+    // Ensure symbol format - according to Yahoo Finance API
     const currencyPairs = [
       'INR=X',      // Base INR
       'USDINR=X',   // USD to INR
@@ -442,36 +442,36 @@ exports.getCurrencyExchange = async (req, res) => {
     
     console.log('Fetching data for currency pairs:', currencyPairs.join(', '));
     
-    // प्रत्येक करेंसी पेयर के लिए अलग-अलग API कॉल करें
-    // यह एक अधिक विश्वसनीय तरीका है
+    // Make separate API calls for each currency pair
+    // This is a more reliable method
     const currencyDataPromises = currencyPairs.map(symbol => {
       console.log(`Fetching data for currency pair: ${symbol}`);
       return yahooFinance.quote(symbol, options)
         .catch(err => {
           console.error(`Error fetching data for ${symbol}:`, err.message);
-          return null; // एरर होने पर null रिटर्न करें
+          return null; // Return null when an error occurs
         });
     });
     
-    // सभी प्रॉमिस को एक साथ रिज़ॉल्व करें
+    // Resolve all promises together
     const currencyDataResults = await Promise.all(currencyDataPromises);
     
-    // null वैल्यू को फ़िल्टर करें (जो फेल हुए हैं)
+    // Filter null values (those that failed)
     const currencyData = currencyDataResults.filter(data => data !== null);
     
     console.log(`Successfully received data for ${currencyData.length} out of ${currencyPairs.length} currency pairs`);
     
-    // यदि कोई भी डेटा नहीं मिला, तो एरर थ्रो करें
+    // If no data is found, throw an error
     if (!currencyData || currencyData.length === 0) {
       console.error('No valid currency data received from Yahoo Finance API');
       throw new Error('Failed to get any valid currency data from Yahoo Finance');
     }
     
-    // रेट्स ऑब्जेक्ट तैयार करें
+    // Prepare rates object
     const rates = {};
     
-    // सभी करेंसी पेयर्स के लिए डेटा प्रोसेस करें
-    // नोट: अब हमारे पास एक ऐरे है जिसमें प्रत्येक करेंसी पेयर के लिए एक ऑब्जेक्ट है
+    // Process data for all currency pairs
+    // Note: Now we have an array with an object for each currency pair
     const usdData = currencyData.find(c => c && c.symbol === 'USDINR=X');
     const eurData = currencyData.find(c => c && c.symbol === 'EURINR=X');
     const gbpData = currencyData.find(c => c && c.symbol === 'GBPINR=X');
@@ -481,18 +481,18 @@ exports.getCurrencyExchange = async (req, res) => {
     const sgdData = currencyData.find(c => c && c.symbol === 'SGDINR=X');
     const aedData = currencyData.find(c => c && c.symbol === 'AEDINR=X');
     
-    // डेटा प्रोसेसिंग के लिए हेल्पर फंक्शन
+    // Helper function for data processing
     const processRate = (data, currency) => {
       if (data && data.regularMarketPrice && !isNaN(data.regularMarketPrice)) {
         console.log(`Processing ${currency} rate: ${data.regularMarketPrice}`);
-        // JPY के लिए विशेष हैंडलिंग
+        // Special handling for JPY
         if (currency === 'JPY') {
           return parseFloat((100 / data.regularMarketPrice).toFixed(2));
         }
         return parseFloat((1 / data.regularMarketPrice).toFixed(6));
       }
       console.warn(`Invalid or missing data for ${currency}, using fallback rate`);
-      // फॉलबैक रेट्स
+      // Fallback rates
       const fallbackRates = {
         USD: 0.012,
         EUR: 0.011,
@@ -506,7 +506,7 @@ exports.getCurrencyExchange = async (req, res) => {
       return fallbackRates[currency];
     };
     
-    // सभी करेंसी के लिए रेट्स प्रोसेस करें
+    // Process rates for all currencies
     rates['USD'] = processRate(usdData, 'USD');
     rates['EUR'] = processRate(eurData, 'EUR');
     rates['GBP'] = processRate(gbpData, 'GBP');
@@ -516,7 +516,7 @@ exports.getCurrencyExchange = async (req, res) => {
     rates['SGD'] = processRate(sgdData, 'SGD');
     rates['AED'] = processRate(aedData, 'AED');
     
-    // रिस्पॉन्स डेटा तैयार करें
+    // Prepare response data
     const currencyExchangeData = {
       base: 'INR',
       date: new Date().toISOString().split('T')[0],
@@ -535,7 +535,7 @@ exports.getCurrencyExchange = async (req, res) => {
     console.error('Error fetching currency exchange data:', error.message);
     console.error('Detailed error:', error);
     
-    // फॉलबैक डेटा प्रदान करें जब API कॉल विफल हो जाए
+    // Provide fallback data when API call fails
     const fallbackData = {
       base: 'INR',
       date: new Date().toISOString().split('T')[0],
