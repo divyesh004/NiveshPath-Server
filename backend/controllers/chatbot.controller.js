@@ -381,6 +381,36 @@ async function callMistralAPI(query, context, previousMessages = []) {
                              query.toLowerCase().includes('सलाह') ||
                              query.toLowerCase().includes('सुझाव');
     
+    // Check if query is specifically about investment options
+    const isInvestmentQuery = query.toLowerCase().includes('invest') ||
+                             query.toLowerCase().includes('stock') ||
+                             query.toLowerCase().includes('sip') ||
+                             query.toLowerCase().includes('mutual fund') ||
+                             query.toLowerCase().includes('equity') ||
+                             query.toLowerCase().includes('bond') ||
+                             query.toLowerCase().includes('निवेश') ||
+                             query.toLowerCase().includes('स्टॉक') ||
+                             query.toLowerCase().includes('शेयर') ||
+                             query.toLowerCase().includes('म्यूचुअल फंड') ||
+                             query.toLowerCase().includes('इक्विटी');
+    
+    // Check if query is specifically about SIP vs lump sum
+    const isSipVsLumpSumQuery = query.toLowerCase().includes('sip vs') ||
+                               query.toLowerCase().includes('sip or lump') ||
+                               query.toLowerCase().includes('lump sum') ||
+                               query.toLowerCase().includes('monthly invest') ||
+                               query.toLowerCase().includes('एसआईपी') ||
+                               query.toLowerCase().includes('मासिक निवेश') ||
+                               query.toLowerCase().includes('एकमुश्त निवेश');
+    
+    // Check if query is specifically about stocks vs mutual funds
+    const isStockVsMutualFundQuery = query.toLowerCase().includes('stock vs') ||
+                                    query.toLowerCase().includes('stock or mutual') ||
+                                    query.toLowerCase().includes('direct equity') ||
+                                    query.toLowerCase().includes('स्टॉक या म्यूचुअल फंड') ||
+                                    query.toLowerCase().includes('शेयर या फंड') ||
+                                    query.toLowerCase().includes('डायरेक्ट इक्विटी');
+    
     // Add personalization based on user profile if available
     if (context.personalization) {
       const { riskProfile, financialGoals, demographicInfo, psychologicalProfile, age, income, name } = context.personalization;
@@ -515,6 +545,10 @@ async function callMistralAPI(query, context, previousMessages = []) {
         }
       }
     }
+    
+    // Add query type flags to context
+    context.isSipVsLumpSumQuery = isSipVsLumpSumQuery;
+    context.isStockVsMutualFundQuery = isStockVsMutualFundQuery;
     
     // Complete the system prompt with special instructions for future planning or investment queries
     if ((isFuturePlanQuery || isInvestmentQuery) && context.personalization) {
