@@ -47,7 +47,7 @@ app.use('/api/external', externalRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'NiveshPath API is running' });
+  res.status(200).json({ status: 'ok', message: 'NiveshPath API is run' });
 });
 
 // Apply error handling middleware
