@@ -29,6 +29,27 @@ const profileSchema = new mongoose.Schema({
     type: String,
     trim: true
   }], // will be used for financialGoals
+  investmentTimeframe: {
+    type: String,
+    enum: ['short_term', 'medium_term', 'long_term'],
+    default: 'medium_term'
+  },
+  riskTolerance: {
+    type: String,
+    enum: ['very_low', 'low', 'medium', 'high', 'very_high'],
+    default: 'medium'
+  },
+  existingInvestments: [{
+    type: String,
+    trim: true
+  }],
+  knowledgeAssessment: {
+    financialKnowledgeLevel: {
+      type: String,
+      enum: ['beginner', 'intermediate', 'advanced'],
+      default: 'beginner'
+    }
+  },
   onboardingData: {
     demographic: {
       location: String,

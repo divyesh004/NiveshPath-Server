@@ -39,7 +39,19 @@ router.post(
       .withMessage('Community influence must be low, medium, or high'),
     
     // Financial goals validation
-    body('financialGoals').optional().isArray().withMessage('Financial goals must be an array')
+    body('financialGoals').optional().isArray().withMessage('Financial goals must be an array'),
+    
+    // Investment assessment validation
+    body('investmentTimeframe').optional()
+      .isIn(['short_term', 'medium_term', 'long_term'])
+      .withMessage('Investment timeframe must be short_term, medium_term, or long_term'),
+    body('riskTolerance').optional()
+      .isIn(['very_low', 'low', 'medium', 'high', 'very_high'])
+      .withMessage('Risk tolerance must be very_low, low, medium, high, or very_high'),
+    body('existingInvestments').optional().isArray().withMessage('Existing investments must be an array'),
+    body('knowledgeAssessment.financialKnowledgeLevel').optional()
+      .isIn(['beginner', 'intermediate', 'advanced'])
+      .withMessage('Financial knowledge level must be beginner, intermediate, or advanced')
   ],
   (req, res, next) => {
     // Map financialGoals to goals if financialGoals is provided

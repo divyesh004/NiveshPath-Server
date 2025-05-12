@@ -22,7 +22,18 @@ router.put(
       .isIn(['low', 'medium', 'high'])
       .withMessage('Risk appetite must be low, medium, or high'),
     // Important: Map financialGoals to goals in the profile model
-    body('financialGoals').optional().isArray().withMessage('Financial goals must be an array')
+    body('financialGoals').optional().isArray().withMessage('Financial goals must be an array'),
+    // Investment assessment fields
+    body('investmentTimeframe').optional()
+      .isIn(['short_term', 'medium_term', 'long_term'])
+      .withMessage('Investment timeframe must be short_term, medium_term, or long_term'),
+    body('riskTolerance').optional()
+      .isIn(['very_low', 'low', 'medium', 'high', 'very_high'])
+      .withMessage('Risk tolerance must be very_low, low, medium, high, or very_high'),
+    body('existingInvestments').optional().isArray().withMessage('Existing investments must be an array'),
+    body('knowledgeAssessment.financialKnowledgeLevel').optional()
+      .isIn(['beginner', 'intermediate', 'advanced'])
+      .withMessage('Financial knowledge level must be beginner, intermediate, or advanced')
   ],
   (req, res, next) => {
     // Map financialGoals to goals if financialGoals is provided

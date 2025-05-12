@@ -32,7 +32,11 @@ exports.updateProfile = async (req, res, next) => {
       riskAppetite,
       goals,
       financialGoals,
-      onboardingData
+      onboardingData,
+      investmentTimeframe,
+      riskTolerance,
+      existingInvestments,
+      knowledgeAssessment
     } = req.body;
     
     // Determine which goals to use (financialGoals or goals)
@@ -50,6 +54,10 @@ exports.updateProfile = async (req, res, next) => {
         income,
         riskAppetite,
         goals: finalGoals,
+        investmentTimeframe,
+        riskTolerance,
+        existingInvestments,
+        knowledgeAssessment,
         onboardingData
       });
     } else {
@@ -59,6 +67,15 @@ exports.updateProfile = async (req, res, next) => {
       if (income) profile.income = income;
       if (riskAppetite) profile.riskAppetite = riskAppetite;
       if (finalGoals.length > 0) profile.goals = finalGoals;
+      if (investmentTimeframe) profile.investmentTimeframe = investmentTimeframe;
+      if (riskTolerance) profile.riskTolerance = riskTolerance;
+      if (existingInvestments) profile.existingInvestments = existingInvestments;
+      if (knowledgeAssessment) {
+        profile.knowledgeAssessment = {
+          ...profile.knowledgeAssessment,
+          ...knowledgeAssessment
+        };
+      }
       if (onboardingData) {
         // Merge onboarding data with existing data
         profile.onboardingData = {
@@ -88,7 +105,20 @@ exports.submitOnboarding = async (req, res, next) => {
       return res.status(400).json({ errors: errors.array() });
     }
     
-    const { demographic, psychological, ethnographic, financialGoals, goals, name, age, income } = req.body;
+    const { 
+      demographic, 
+      psychological, 
+      ethnographic, 
+      financialGoals, 
+      goals, 
+      name, 
+      age, 
+      income,
+      investmentTimeframe,
+      riskTolerance,
+      existingInvestments,
+      knowledgeAssessment
+    } = req.body;
     
     // Find profile by userId
     let profile = await Profile.findOne({ userId: req.user.userId });
@@ -104,6 +134,10 @@ exports.submitOnboarding = async (req, res, next) => {
         age: age || (demographic?.age),
         income: income || (demographic?.income),
         goals: finalGoals,
+        investmentTimeframe,
+        riskTolerance,
+        existingInvestments,
+        knowledgeAssessment,
         onboardingData: {
           demographic,
           psychological,
@@ -115,6 +149,16 @@ exports.submitOnboarding = async (req, res, next) => {
       if (name) profile.name = name;
       if (age) profile.age = age;
       if (income) profile.income = income;
+      if (finalGoals.length > 0) profile.goals = finalGoals;
+      if (investmentTimeframe) profile.investmentTimeframe = investmentTimeframe;
+      if (riskTolerance) profile.riskTolerance = riskTolerance;
+      if (existingInvestments) profile.existingInvestments = existingInvestments;
+      if (knowledgeAssessment) {
+        profile.knowledgeAssessment = {
+          ...profile.knowledgeAssessment,
+          ...knowledgeAssessment
+        };
+      }
       
       // Update from demographic if direct fields not provided
       if (demographic?.name && !name) profile.name = demographic.name;
