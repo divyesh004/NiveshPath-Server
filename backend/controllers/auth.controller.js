@@ -2,6 +2,25 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const User = require('../models/user.model');
 const Profile = require('../models/profile.model');
+const nodemailer = require('nodemailer');
+
+// Create a transporter for sending emails
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  host: 'imdyadav04@gmail.com',
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER || 'your-email@gmail.com', // Use environment variable or default
+    pass: process.env.EMAIL_PASSWORD || 'your-email-password' // Use environment variable or default
+  },
+  tls: {
+    rejectUnauthorized: false
+  }
+});
+
+// Store OTPs temporarily (in production, use a database or Redis)
+const otpStore = new Map();
 
 // Register a new user
 exports.register = async (req, res, next) => {
@@ -112,6 +131,7 @@ exports.getCurrentUser = async (req, res, next) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Get user profile
     const profile = await Profile.findOne({ userId: user._id });
 
     res.status(200).json({
@@ -123,6 +143,179 @@ exports.getCurrentUser = async (req, res, next) => {
       }
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+// Forgot password - send OTP to email
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found with this email' });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store OTP with expiry time (15 minutes)
+    otpStore.set(email, {
+      otp,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 minutes from now
+    });
+
+    // Verify transporter configuration
+    console.log('Email configuration:', {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD ? '******' : 'not set'
+    });
+
+    // Send OTP to user's email
+    const mailOptions = {
+      from: `"NiveshPath" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Password Reset OTP - NiveshPath',
+      html: `
+        <h1>Password Reset Request</h1>
+        <p>You requested to reset your password for your NiveshPath account.</p>
+        <p>Your OTP is: <strong>${otp}</strong></p>
+        <p>This OTP will expire in 15 minutes.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      `
+    };
+
+    // In development, log the OTP but also send email
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Development mode: OTP for ${email} is ${otp}`);
+    }
+
+    // Verify transporter before sending
+    transporter.verify(function(error, success) {
+      if (error) {
+        console.error('SMTP server verification failed:', error);
+      } else {
+        console.log('SMTP server is ready to take our messages');
+      }
+    });
+
+    // Send email
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log('Email sent successfully:', info.response);
+      return res.status(200).json({ 
+        message: 'OTP sent to your email successfully',
+        devOtp: process.env.NODE_ENV === 'development' ? otp : undefined // Only in development mode
+      });
+    } catch (emailError) {
+      console.error('Error sending email:', emailError);
+      // Return OTP in development mode even if email fails
+      if (process.env.NODE_ENV === 'development') {
+        return res.status(200).json({
+          message: 'Email sending failed but OTP generated in development mode',
+          devOtp: otp,
+          error: emailError.message
+        });
+      }
+      return res.status(500).json({ message: 'Failed to send OTP email. Please try again.', error: emailError.message });
+    }
+
+    // Response is already sent in the try-catch block above
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    next(error);
+  }
+};
+
+// Verify OTP
+exports.verifyOTP = async (req, res, next) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, otp } = req.body;
+
+    // Check if OTP exists for this email
+    const otpData = otpStore.get(email);
+    if (!otpData) {
+      return res.status(400).json({ message: 'OTP not found or expired. Please request a new one.' });
+    }
+
+    // Check if OTP is expired
+    if (new Date() > new Date(otpData.expiresAt)) {
+      otpStore.delete(email); // Clean up expired OTP
+      return res.status(400).json({ message: 'OTP expired. Please request a new one.' });
+    }
+
+    // Verify OTP
+    if (otpData.otp !== otp) {
+      return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
+    }
+
+    // OTP is valid - don't delete it yet as it will be needed for reset password
+    res.status(200).json({ message: 'OTP verified successfully' });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    next(error);
+  }
+};
+
+// Reset password
+exports.resetPassword = async (req, res, next) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, otp, newPassword } = req.body;
+
+    // Check if OTP exists and is valid for this email
+    const otpData = otpStore.get(email);
+    if (!otpData || otpData.otp !== otp || new Date() > new Date(otpData.expiresAt)) {
+      return res.status(400).json({ message: 'Invalid or expired OTP. Please request a new one.' });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if 7 days have passed since the last password change
+    if (user.lastPasswordChange) {
+      const daysSinceLastChange = Math.floor((Date.now() - user.lastPasswordChange) / (1000 * 60 * 60 * 24));
+      if (daysSinceLastChange < 7) {
+        return res.status(400).json({ 
+          message: 'You can change the password only once in 7 days', 
+          daysRemaining: 7 - daysSinceLastChange 
+        });
+      }
+    }
+
+    // Update password
+    user.passwordHash = newPassword; // Will be hashed by pre-save hook
+    user.lastPasswordChange = new Date(); // Update the last password change date
+    await user.save();
+
+    // Delete OTP after successful password reset
+    otpStore.delete(email);
+
+    res.status(200).json({ message: 'Password reset successful' });
+  } catch (error) {
+    console.error('Reset password error:', error);
     next(error);
   }
 };

@@ -1,6 +1,7 @@
 const { validationResult } = require('express-validator');
 const Course = require('../models/course.model');
 const UserProgress = require('../models/userProgress.model');
+const { sendContentNotification } = require('./subscription.controller');
 
 // Get all courses
 exports.getAllCourses = async (req, res, next) => {
@@ -8,6 +9,38 @@ exports.getAllCourses = async (req, res, next) => {
     const courses = await Course.find().select('_id title description level duration');
     res.status(200).json(courses);
   } catch (error) {
+    next(error);
+  }
+};
+
+// Create new course
+exports.createCourse = async (req, res, next) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    
+    // Create new course
+    const newCourse = new Course(req.body);
+    await newCourse.save();
+    
+    // Send notification to all active subscribers
+    await sendContentNotification(
+      'course',                 // कंटेंट का प्रकार
+      newCourse.title,          // कंटेंट का शीर्षक
+      newCourse._id.toString(), // कंटेंट की आईडी
+      newCourse.description     // कंटेंट का विवरण
+    );
+    
+    res.status(201).json({
+      success: true,
+      message: 'कोर्स सफलतापूर्वक बनाया गया और सब्सक्राइबर्स को नोटिफिकेशन भेजा गया',
+      course: newCourse
+    });
+  } catch (error) {
+    console.error('Create course error:', error);
     next(error);
   }
 };

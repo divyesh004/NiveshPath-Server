@@ -1,7 +1,8 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const courseController = require('../controllers/course.controller');
-const { authenticate } = require('../middlewares/auth.middleware');
+const { authenticate, isAdmin } = require('../middlewares/auth.middleware');
+
 
 const router = express.Router();
 
@@ -10,6 +11,9 @@ router.get('/', courseController.getAllCourses);
 
 // Get course by ID (public route)
 router.get('/:id', courseController.getCourseById);
+
+// Create new course (admin only)
+router.post('/', authenticate, isAdmin, courseController.createCourse);
 
 // Protected routes below - require authentication
 router.use(authenticate);
