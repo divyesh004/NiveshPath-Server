@@ -8,9 +8,9 @@ The NiveshPath Chatbot API provides personalized financial advice to users based
 
 All chatbot endpoints require authentication. Include the JWT token in the Authorization header:
 
-``
+```
 Authorization: Bearer <your_jwt_token>
-``
+```
 
 ## Rate Limiting
 

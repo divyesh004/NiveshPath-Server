@@ -120,6 +120,12 @@ exports.submitOnboarding = async (req, res, next) => {
       knowledgeAssessment
     } = req.body;
     
+    // Log received data for debugging
+    console.log('Received existingInvestments:', existingInvestments);
+    
+    // Ensure existingInvestments is always an array
+    const safeExistingInvestments = Array.isArray(existingInvestments) ? existingInvestments : [];
+    
     // Find profile by userId
     let profile = await Profile.findOne({ userId: req.user.userId });
     
@@ -136,7 +142,7 @@ exports.submitOnboarding = async (req, res, next) => {
         goals: finalGoals,
         investmentTimeframe,
         riskTolerance,
-        existingInvestments,
+        existingInvestments: safeExistingInvestments,
         knowledgeAssessment,
         onboardingData: {
           demographic,
@@ -152,7 +158,7 @@ exports.submitOnboarding = async (req, res, next) => {
       if (finalGoals.length > 0) profile.goals = finalGoals;
       if (investmentTimeframe) profile.investmentTimeframe = investmentTimeframe;
       if (riskTolerance) profile.riskTolerance = riskTolerance;
-      if (existingInvestments) profile.existingInvestments = existingInvestments;
+      profile.existingInvestments = safeExistingInvestments; // Always update with safe array
       if (knowledgeAssessment) {
         profile.knowledgeAssessment = {
           ...profile.knowledgeAssessment,

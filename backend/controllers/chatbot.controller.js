@@ -216,55 +216,13 @@ exports.submitQuery = async (req, res, next) => {
     // Call Mistral AI API with conversation history
     const response = await callMistralAPI(query, context, previousMessages);
     
-    // Optimize context by removing unnecessary data before saving
-    const optimizedContext = {
-      userId: context.userId,
-      timestamp: context.timestamp,
-      profileStatus: context.profileStatus,
-      isFuturePlanQuery: context.isFuturePlanQuery,
-      isInvestmentQuery: context.isInvestmentQuery,
-      isSipVsLumpSumQuery: context.isSipVsLumpSumQuery,
-      isStockVsMutualFundQuery: context.isStockVsMutualFundQuery
-    };
-    
-    // If it's a fallback response due to API error
-    if (response.fallback) {
-      // Save the chat session with error information
-      const chatSession = new ChatbotSession({
-        userId: req.user.userId,
-        query,
-        response: response.text,
-        context: optimizedContext,
-        conversationId: conversationId || new mongoose.Types.ObjectId(),
-        status: 'failed',
-        errorDetails: { message: response.text }
-      });
-      
-      await chatSession.save();
-      
-      const responseObj = {
-        response: response.text,
-        sessionId: chatSession._id,
-        conversationId: chatSession.conversationId,
-        error: true
-      };
-      
-      // Add retry suggestion if available
-      if (response.retryAfter) {
-        responseObj.retryAfter = response.retryAfter;
-      }
-      
-      return res.status(200).json(responseObj);
-    }
-    
-    // Normal successful response
+    // Save the chat session
     const chatSession = new ChatbotSession({
       userId: req.user.userId,
       query,
       response: response.text,
-      context: optimizedContext,
-      conversationId: conversationId || new mongoose.Types.ObjectId(), // Create new conversation ID if not provided
-      status: 'success'
+      context,
+      conversationId: conversationId || new mongoose.Types.ObjectId() // Create new conversation ID if not provided
     });
     
     await chatSession.save();
@@ -404,26 +362,8 @@ exports.deleteSession = async (req, res, next) => {
 // Helper function to call Mistral AI API
 async function callMistralAPI(query, context, previousMessages = []) {
   try {
-    // Create a personalized system prompt based on user profile - optimized for performance
-    let systemPrompt = 'You are a financial advisor assistant for NiveshPath, a personal finance education platform for Indian users. '
-    
-    // Language instructions - enhanced for bilingual support
-    systemPrompt += 'आपको उपयोगकर्ता के प्रश्न का उत्तर उसी भाषा में देना है जिसमें प्रश्न पूछा गया है (हिंदी या अंग्रेजी)। यदि प्रश्न हिंदी में है, तो उत्तर हिंदी में दें। यदि प्रश्न अंग्रेजी में है, तो उत्तर अंग्रेजी में दें। हिंदी में उत्तर देते समय औपचारिक भाषा के बजाय प्राकृतिक संवादात्मक हिंदी का उपयोग करें। '
-    
-    // Formatting instructions
-    systemPrompt += 'FORMAT YOUR RESPONSES APPROPRIATELY: Present tabular data in markdown tables, use bullet points for lists, and use paragraphs for explanations. Always structure your response for maximum readability and clarity. '
-    
-    // Financial vocabulary instructions - enhanced for Indian context
-    systemPrompt += 'आपको भारतीय वित्तीय बाजार के संदर्भ में सटीक वित्तीय शब्दावली का उपयोग करना है। म्यूचुअल फंड, स्टॉक, बॉन्ड, PPF, NPS, और अन्य भारतीय निवेश विकल्पों के लिए सही शब्दों का प्रयोग करें। जहां आवश्यक हो, हिंदी और अंग्रेजी दोनों में वित्तीय शब्दों को समझाएं। '
-    
-    // Simplification instructions
-    systemPrompt += 'जटिल वित्तीय अवधारणाओं को सरल भाषा में समझाएं, विशेष रूप से नए निवेशकों के लिए। तकनीकी जार्गन का उपयोग कम से कम करें और जहां आवश्यक हो, उदाहरणों का उपयोग करें। '
-    
-    // Detect language of query for appropriate response
-    const isHindiQuery = /[\u0900-\u097F]/.test(query); // Check for Hindi Unicode characters
-    if (isHindiQuery) {
-      systemPrompt += 'प्रश्न हिंदी में है, इसलिए उत्तर भी हिंदी में दें। ';
-    }
+    // Create a personalized system prompt based on user profile
+    let systemPrompt = 'You are a financial advisor assistant for NiveshPath, a personal finance education platform for Indian users. FORMAT YOUR RESPONSES APPROPRIATELY: Present tabular data in markdown tables, use bullet points for lists, and use paragraphs for explanations. Always structure your response for maximum readability and clarity. ';
     
     // Add profile completeness information to the prompt
     if (context.profileStatus && !context.profileStatus.complete) {
@@ -837,57 +777,56 @@ Provide a DETAILED COMPARISON between direct stock investments and mutual funds 
     });
     
     // Make API request with enhanced parameters for more dynamic responses
-    try {
-      const response = await axios.post(
-        `${process.env.MISTRAL_API_URL}/chat/completions`,
-        {
-          model: process.env.MISTRAL_MODEL || 'mistral-medium',  // Allow model selection via environment variable
-          messages: messages,
-          temperature: 0.85,        // Increased temperature for more creative responses
-          max_tokens: 1000,         // Increased token limit for more comprehensive responses
-          top_p: 0.95,              // Nucleus sampling for more diverse text generation
-          presence_penalty: 0.6,    // Reduces repetition by penalizing tokens already present
-          frequency_penalty: 0.5,   // Reduces repetition by penalizing frequent tokens
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 15000 // 15 second timeout to prevent long waiting periods
+    const response = await axios.post(
+      `${process.env.MISTRAL_API_URL}/chat/completions`,
+      {
+        model: 'mistral-medium',  // or whichever model is appropriate
+        messages: messages,
+        temperature: 0.85,        // Increased temperature for more creative responses
+        max_tokens: 1000,         // Increased token limit for more comprehensive responses
+        top_p: 0.95,              // Nucleus sampling for more diverse text generation
+        presence_penalty: 0.6,    // Reduces repetition by penalizing tokens already present
+        frequency_penalty: 0.5,   // Reduces repetition by penalizing frequent tokens
+        // Removed context as it's not a standard parameter for Mistral API
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
+          'Content-Type': 'application/json'
         }
-      );
+      }
+    );
     
-      // Add error handling for API response
-      if (!response.data || !response.data.choices || !response.data.choices[0] || !response.data.choices[0].message) {
-        console.error('Invalid response from Mistral API:', response.data);
-        throw new Error('अमान्य प्रतिक्रिया प्राप्त हुई। कृपया कुछ देर बाद पुनः प्रयास करें।');
+    // Add error handling for API response
+    if (!response.data || !response.data.choices || !response.data.choices[0] || !response.data.choices[0].message) {
+      console.error('Invalid response from Mistral API:', response.data);
+      throw new Error('Received invalid response from AI service');
+    }
+    
+    // Process the response to enhance natural flow and readability
+    let responseText = response.data.choices[0].message.content;
+    
+    // Remove any unnecessary formatting that might make the response look automated
+    responseText = responseText.replace(/\n\n+/g, '\n\n')  // Replace multiple newlines with double newlines
+                             .trim();                      // Remove trailing whitespace
+    
+    // Add natural pauses and flow indicators for more human-like responses
+    if (responseText.length > 200 && !responseText.includes('...')) {
+      // Find a good spot to add a thoughtful pause in longer responses
+      const sentences = responseText.split('. ');
+      if (sentences.length > 3) {
+        const pauseIndex = Math.floor(sentences.length / 3);
+        sentences[pauseIndex] = sentences[pauseIndex] + '... ';
+        responseText = sentences.join('. ');
       }
-      
-      // Process the response to enhance natural flow and readability
-      let responseText = response.data.choices[0].message.content;
-      
-      // Remove any unnecessary formatting that might make the response look automated
-      responseText = responseText.replace(/\n\n+/g, '\n\n')  // Replace multiple newlines with double newlines
-                               .trim();                      // Remove trailing whitespace
-      
-      // Add natural pauses and flow indicators for more human-like responses
-      if (responseText.length > 200 && !responseText.includes('...')) {
-        // Find a good spot to add a thoughtful pause in longer responses
-        const sentences = responseText.split('. ');
-        if (sentences.length > 3) {
-          const pauseIndex = Math.floor(sentences.length / 3);
-          sentences[pauseIndex] = sentences[pauseIndex] + '... ';
-          responseText = sentences.join('. ');
-        }
-      }
-      
-      return {
-        text: responseText,
-        raw: response.data
-      };
-    } catch (error) {
-      // Enhanced error logging with more details
+    }
+    
+    return {
+      text: responseText,
+      raw: response.data
+    };
+  } catch (error) {
+    // Enhanced error logging with more details
     console.error('Mistral API error:', {
       message: error.message,
       status: error.response?.status,
@@ -896,62 +835,11 @@ Provide a DETAILED COMPARISON between direct stock investments and mutual funds 
       url: error.config?.url
     });
     
-    // Provide enhanced fallback responses with more specific error messages
-    let fallbackResponse = {
-      text: 'मुझे खेद है, मैं आपके प्रश्न का उत्तर देने में असमर्थ हूँ। कृपया अपने प्रश्न को पुनः तैयार करें या बाद में पुनः प्रयास करें।',
-      fallback: true
-    };
-    
-    // More specific error messages based on error type with improved user guidance
-    if (error.response?.status === 429) {
-      fallbackResponse.text = 'अत्यधिक अनुरोधों के कारण सेवा अस्थायी रूप से अनुपलब्ध है। कृपया कुछ मिनट बाद पुनः प्रयास करें।';
-      fallbackResponse.retryAfter = 60; // Suggest retry after 60 seconds
-    } else if (error.response?.status === 401 || error.response?.status === 403) {
-      fallbackResponse.text = 'API कुंजी अमान्य है। कृपया सिस्टम व्यवस्थापक से संपर्क करें।';
-      console.error('Authentication error with Mistral API - check API key');
-    } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      fallbackResponse.text = 'प्रतिक्रिया प्राप्त करने में अधिक समय लग रहा है। कृपया अपने प्रश्न को छोटा करें या बाद में पुनः प्रयास करें।';
-    } else if (error.response?.status >= 500) {
-      fallbackResponse.text = 'Mistral AI सेवा वर्तमान में अनुपलब्ध है। हमारी टीम इस पर काम कर रही है। कृपया बाद में पुनः प्रयास करें।';
-    } else if (error.response?.status === 400 && error.response?.data?.error?.includes('token')) {
-      fallbackResponse.text = 'प्रश्न बहुत लंबा है, कृपया इसे छोटा करें और पुनः प्रयास करें।';
-    } else if (!error.response) {
-      fallbackResponse.text = 'सर्वर से संपर्क करने में समस्या हुई, कृपया अपने इंटरनेट कनेक्शन की जांच करें और पुनः प्रयास करें।';
-    } else if (error.message.includes('Invalid response')) {
-      fallbackResponse.text = 'अमान्य प्रतिक्रिया प्राप्त हुई। कृपया अपने प्रश्न को पुनः तैयार करें या बाद में पुनः प्रयास करें।';
-    } else if (error.message.includes('context')) {
-      fallbackResponse.text = 'मुझे आपके प्रश्न के संदर्भ को समझने में कठिनाई हो रही है। कृपया अधिक विवरण प्रदान करें या अपने प्रश्न को पुनः तैयार करें।';
+    // Throw a more descriptive error
+    if (error.response?.status) {
+      throw new Error(`Failed to get response from AI service: ${error.response.status} ${error.response.statusText}`);
+    } else {
+      throw new Error(`Failed to get response from AI service: ${error.message}`);
     }
-    
-    return fallbackResponse;
-  }} catch (error) {
-    // Prepare fallback response with improved error handling
-    const fallbackResponse = {
-      text: 'मुझे खेद है, मैं आपके प्रश्न का उत्तर देने में असमर्थ हूँ। कृपया अपने प्रश्न को पुनः तैयार करें या बाद में पुनः प्रयास करें।',
-      fallback: true
-    };
-    
-    // More specific error messages based on error type with improved user guidance
-    if (error.response?.status === 429) {
-      fallbackResponse.text = 'अत्यधिक अनुरोधों के कारण सेवा अस्थायी रूप से अनुपलब्ध है। कृपया कुछ मिनट बाद पुनः प्रयास करें।';
-      fallbackResponse.retryAfter = 60; // Suggest retry after 60 seconds
-    } else if (error.response?.status === 401 || error.response?.status === 403) {
-      fallbackResponse.text = 'API कुंजी अमान्य है। कृपया सिस्टम व्यवस्थापक से संपर्क करें।';
-      console.error('Authentication error with Mistral API - check API key');
-    } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      fallbackResponse.text = 'प्रतिक्रिया प्राप्त करने में अधिक समय लग रहा है। कृपया अपने प्रश्न को छोटा करें या बाद में पुनः प्रयास करें।';
-    } else if (error.response?.status >= 500) {
-      fallbackResponse.text = 'Mistral AI सेवा वर्तमान में अनुपलब्ध है। हमारी टीम इस पर काम कर रही है। कृपया बाद में पुनः प्रयास करें।';
-    } else if (error.response?.status === 400 && error.response?.data?.error?.includes('token')) {
-      fallbackResponse.text = 'प्रश्न बहुत लंबा है, कृपया इसे छोटा करें और पुनः प्रयास करें।';
-    } else if (!error.response) {
-      fallbackResponse.text = 'सर्वर से संपर्क करने में समस्या हुई, कृपया अपने इंटरनेट कनेक्शन की जांच करें और पुनः प्रयास करें।';
-    } else if (error.message.includes('Invalid response')) {
-      fallbackResponse.text = 'अमान्य प्रतिक्रिया प्राप्त हुई। कृपया अपने प्रश्न को पुनः तैयार करें या बाद में पुनः प्रयास करें।';
-    } else if (error.message.includes('context')) {
-      fallbackResponse.text = 'मुझे आपके प्रश्न के संदर्भ को समझने में कठिनाई हो रही है। कृपया अधिक विवरण प्रदान करें या अपने प्रश्न को पुनः तैयार करें।';
-    }
-    
-    return fallbackResponse;
   }
-};
+}
