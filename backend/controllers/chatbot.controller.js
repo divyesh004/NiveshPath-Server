@@ -57,7 +57,7 @@ exports.submitQuery = async (req, res, next) => {
     if (!profileStatus.complete && !query.toLowerCase().includes('profile')) {
       // Prepare a response encouraging user to complete their profile
       const incompleteProfileResponse = {
-        text: `आपकी प्रोफाइल अभी अधूरी है (${profileStatus.completionPercentage}% पूर्ण)। बेहतर वित्तीय सलाह के लिए, कृपया अपनी प्रोफाइल में निम्नलिखित जानकारी जोड़ें: ${profileStatus.missingFields.join(', ')}। क्या आप अभी अपनी प्रोफाइल अपडेट करना चाहेंगे?`,
+        text: `Your profile is currently incomplete (${profileStatus.completionPercentage}% complete). For better financial advice, please add the following information to your profile: ${profileStatus.missingFields.join(', ')}. Would you like to update your profile now?`,
         profileStatus
       };
       
@@ -86,10 +86,10 @@ exports.submitQuery = async (req, res, next) => {
                              query.toLowerCase().includes('advice') || 
                              query.toLowerCase().includes('suggest') || 
                              query.toLowerCase().includes('recommendation') ||
-                             query.toLowerCase().includes('भविष्य') ||
-                             query.toLowerCase().includes('योजना') ||
-                             query.toLowerCase().includes('सलाह') ||
-                             query.toLowerCase().includes('सुझाव');
+                             query.toLowerCase().includes('future') ||
+                             query.toLowerCase().includes('planning') ||
+                             query.toLowerCase().includes('advice') ||
+                             query.toLowerCase().includes('suggestion');
     
     // Check if query is specifically about investment options
     const isInvestmentQuery = query.toLowerCase().includes('invest') ||
@@ -98,34 +98,34 @@ exports.submitQuery = async (req, res, next) => {
                              query.toLowerCase().includes('mutual fund') ||
                              query.toLowerCase().includes('equity') ||
                              query.toLowerCase().includes('bond') ||
-                             query.toLowerCase().includes('निवेश') ||
-                             query.toLowerCase().includes('स्टॉक') ||
-                             query.toLowerCase().includes('शेयर') ||
-                             query.toLowerCase().includes('म्यूचुअल फंड') ||
-                             query.toLowerCase().includes('इक्विटी');
+                             query.toLowerCase().includes('investment') ||
+                             query.toLowerCase().includes('stock') ||
+                             query.toLowerCase().includes('share') ||
+                             query.toLowerCase().includes('mutual fund') ||
+                             query.toLowerCase().includes('equity');
     
     // Check if query is specifically about SIP vs lump sum
     const isSipVsLumpSumQuery = query.toLowerCase().includes('sip vs') ||
                                query.toLowerCase().includes('sip or lump') ||
                                query.toLowerCase().includes('lump sum') ||
                                query.toLowerCase().includes('monthly invest') ||
-                               query.toLowerCase().includes('एसआईपी') ||
-                               query.toLowerCase().includes('मासिक निवेश') ||
-                               query.toLowerCase().includes('एकमुश्त निवेश');
+                               query.toLowerCase().includes('sip') ||
+                               query.toLowerCase().includes('monthly investment') ||
+                               query.toLowerCase().includes('one-time investment');
     
     // Check if query is specifically about stocks vs mutual funds
     const isStockVsMutualFundQuery = query.toLowerCase().includes('stock vs') ||
                                     query.toLowerCase().includes('stock or mutual') ||
                                     query.toLowerCase().includes('direct equity') ||
-                                    query.toLowerCase().includes('स्टॉक या म्यूचुअल फंड') ||
-                                    query.toLowerCase().includes('शेयर या फंड') ||
-                                    query.toLowerCase().includes('डायरेक्ट इक्विटी');
+                                    query.toLowerCase().includes('stock or mutual fund') ||
+                                    query.toLowerCase().includes('share or fund') ||
+                                    query.toLowerCase().includes('direct equity');
     
     // If it's a future planning query but profile is incomplete, provide specific guidance
     if (isFuturePlanQuery && !profileStatus.complete) {
       const missingFieldsText = profileStatus.missingFields.join(', ');
       const incompleteProfileResponse = {
-        text: `आपने भविष्य की वित्तीय योजना के बारे में पूछा है, लेकिन आपकी प्रोफाइल अभी अधूरी है (${profileStatus.completionPercentage}% पूर्ण)। व्यक्तिगत वित्तीय सलाह प्रदान करने के लिए, हमें आपकी प्रोफाइल में निम्नलिखित जानकारी की आवश्यकता है: ${missingFieldsText}। क्या आप अभी अपनी प्रोफाइल अपडेट करना चाहेंगे?`,
+        text: `You have asked about future financial planning, but your profile is currently incomplete (${profileStatus.completionPercentage}% complete). To provide personalized financial advice, we need the following information in your profile: ${missingFieldsText}. Would you like to update your profile now?`,
         profileStatus
       };
       
@@ -174,7 +174,7 @@ exports.submitQuery = async (req, res, next) => {
     if (isInvestmentQuery && !profileStatus.complete) {
       const missingFieldsText = profileStatus.missingFields.join(', ');
       const incompleteProfileResponse = {
-        text: `आपने निवेश विकल्पों के बारे में पूछा है, लेकिन आपकी प्रोफाइल अभी अधूरी है (${profileStatus.completionPercentage}% पूर्ण)। व्यक्तिगत निवेश सलाह प्रदान करने के लिए, हमें आपकी प्रोफाइल में निम्नलिखित जानकारी की आवश्यकता है: ${missingFieldsText}। क्या आप अभी अपनी प्रोफाइल अपडेट करना चाहेंगे?`,
+        text: `You have asked about investment options, but your profile is currently incomplete (${profileStatus.completionPercentage}% complete). To provide personalized investment advice, we need the following information in your profile: ${missingFieldsText}. Would you like to update your profile now?`,
         profileStatus
       };
       
@@ -376,10 +376,10 @@ async function callMistralAPI(query, context, previousMessages = []) {
                              query.toLowerCase().includes('advice') || 
                              query.toLowerCase().includes('suggest') || 
                              query.toLowerCase().includes('recommendation') ||
-                             query.toLowerCase().includes('भविष्य') ||
-                             query.toLowerCase().includes('योजना') ||
-                             query.toLowerCase().includes('सलाह') ||
-                             query.toLowerCase().includes('सुझाव');
+                             query.toLowerCase().includes('future') ||
+                             query.toLowerCase().includes('planning') ||
+                             query.toLowerCase().includes('advice') ||
+                             query.toLowerCase().includes('suggestion');
     
     // Check if query is specifically about investment options
     const isInvestmentQuery = query.toLowerCase().includes('invest') ||
@@ -388,28 +388,28 @@ async function callMistralAPI(query, context, previousMessages = []) {
                              query.toLowerCase().includes('mutual fund') ||
                              query.toLowerCase().includes('equity') ||
                              query.toLowerCase().includes('bond') ||
-                             query.toLowerCase().includes('निवेश') ||
-                             query.toLowerCase().includes('स्टॉक') ||
-                             query.toLowerCase().includes('शेयर') ||
-                             query.toLowerCase().includes('म्यूचुअल फंड') ||
-                             query.toLowerCase().includes('इक्विटी');
+                             query.toLowerCase().includes('investment') ||
+                             query.toLowerCase().includes('stock') ||
+                             query.toLowerCase().includes('share') ||
+                             query.toLowerCase().includes('mutual fund') ||
+                             query.toLowerCase().includes('equity');
     
     // Check if query is specifically about SIP vs lump sum
     const isSipVsLumpSumQuery = query.toLowerCase().includes('sip vs') ||
                                query.toLowerCase().includes('sip or lump') ||
                                query.toLowerCase().includes('lump sum') ||
                                query.toLowerCase().includes('monthly invest') ||
-                               query.toLowerCase().includes('एसआईपी') ||
-                               query.toLowerCase().includes('मासिक निवेश') ||
-                               query.toLowerCase().includes('एकमुश्त निवेश');
+                               query.toLowerCase().includes('sip') ||
+                               query.toLowerCase().includes('monthly investment') ||
+                               query.toLowerCase().includes('one-time investment');
     
     // Check if query is specifically about stocks vs mutual funds
     const isStockVsMutualFundQuery = query.toLowerCase().includes('stock vs') ||
                                     query.toLowerCase().includes('stock or mutual') ||
                                     query.toLowerCase().includes('direct equity') ||
-                                    query.toLowerCase().includes('स्टॉक या म्यूचुअल फंड') ||
-                                    query.toLowerCase().includes('शेयर या फंड') ||
-                                    query.toLowerCase().includes('डायरेक्ट इक्विटी');
+                                    query.toLowerCase().includes('stock or mutual fund') ||
+                                    query.toLowerCase().includes('share or fund') ||
+                                    query.toLowerCase().includes('direct equity');
     
     // Add personalization based on user profile if available
     if (context.personalization) {
@@ -663,26 +663,26 @@ async function callMistralAPI(query, context, previousMessages = []) {
       let ageAnalysis = "";
       if (age) {
         if (age < 30) {
-          ageAnalysis = `उपयोगकर्ता युवा है (${age} वर्ष), इसलिए लंबी अवधि के निवेश और जोखिम लेने की क्षमता अधिक है।`;
+          ageAnalysis = `The user is young (${age} years), so they have higher capacity for long-term investments and risk-taking.`;
         } else if (age >= 30 && age < 45) {
-          ageAnalysis = `उपयोगकर्ता मध्य आयु वर्ग में है (${age} वर्ष), इसलिए संतुलित निवेश रणनीति उचित होगी।`;
+          ageAnalysis = `The user is middle-aged (${age} years), so a balanced investment strategy would be appropriate.`;
         } else if (age >= 45 && age < 60) {
-          ageAnalysis = `उपयोगकर्ता परिपक्व आयु वर्ग में है (${age} वर्ष), इसलिए सुरक्षित निवेश और रिटायरमेंट प्लानिंग पर ध्यान देना चाहिए।`;
+          ageAnalysis = `The user is in the mature age group (${age} years), so focus should be on safe investments and retirement planning.`;
         } else {
-          ageAnalysis = `उपयोगकर्ता वरिष्ठ आयु वर्ग में है (${age} वर्ष), इसलिए आय सुरक्षा और संपत्ति संरक्षण पर ध्यान केंद्रित करना चाहिए।`;
+          ageAnalysis = `The user is in the senior age group (${age} years), so focus should be on income security and asset preservation.`;
         }
       }
       
       let incomeAnalysis = "";
       if (income) {
         if (income < 500000) {
-          incomeAnalysis = `उपयोगकर्ता की आय कम है (₹${income}/वर्ष), इसलिए बजट प्रबंधन और आपातकालीन फंड बनाने पर ध्यान देना चाहिए।`;
+          incomeAnalysis = `The user has low income (₹${income}/year), so focus should be on budget management and building an emergency fund.`;
         } else if (income >= 500000 && income < 1000000) {
-          incomeAnalysis = `उपयोगकर्ता की आय मध्यम है (₹${income}/वर्ष), इसलिए बचत बढ़ाने और कर बचत पर ध्यान देना चाहिए।`;
+          incomeAnalysis = `The user has moderate income (₹${income}/year), so focus should be on increasing savings and tax savings.`;
         } else if (income >= 1000000 && income < 2000000) {
-          incomeAnalysis = `उपयोगकर्ता की आय अच्छी है (₹${income}/वर्ष), इसलिए विविध निवेश पोर्टफोलियो और कर योजना पर ध्यान देना चाहिए।`;
+          incomeAnalysis = `The user has good income (₹${income}/year), so focus should be on diverse investment portfolio and tax planning.`;
         } else {
-          incomeAnalysis = `उपयोगकर्ता की आय उच्च है (₹${income}/वर्ष), इसलिए संपत्ति विविधीकरण, कर योजना और संपत्ति प्रबंधन पर ध्यान देना चाहिए।`;
+          incomeAnalysis = `The user has high income (₹${income}/year), so focus should be on asset diversification, tax planning, and wealth management.`;
         }
       }
       
@@ -694,10 +694,10 @@ async function callMistralAPI(query, context, previousMessages = []) {
             demographicInfo.location.toLowerCase().includes('bangalore') || 
             demographicInfo.location.toLowerCase().includes('pune') || 
             demographicInfo.location.toLowerCase().includes('hyderabad')) {
-          locationAnalysis = `उपयोगकर्ता महानगर ${demographicInfo.location} में रहता है, जहां जीवन यापन की लागत अधिक है, इसलिए बड़े आपातकालीन फंड और उच्च स्वास्थ्य बीमा कवरेज की आवश्यकता है।`;
+          locationAnalysis = `The user lives in the metropolitan city ${demographicInfo.location}, where the cost of living is high, so they need a larger emergency fund and higher health insurance coverage.`;
         } else if (demographicInfo.location.toLowerCase().includes('tier 2') || 
                  demographicInfo.location.toLowerCase().includes('tier ii')) {
-          locationAnalysis = `उपयोगकर्ता टियर 2 शहर ${demographicInfo.location} में रहता है, जहां रियल एस्टेट निवेश के अच्छे अवसर हो सकते हैं।`;
+          locationAnalysis = `The user lives in a tier 2 city ${demographicInfo.location}, where there may be good opportunities for real estate investment.`;
         }
       }
       
@@ -706,16 +706,16 @@ async function callMistralAPI(query, context, previousMessages = []) {
       if (demographicInfo && demographicInfo.occupation) {
         if (demographicInfo.occupation.toLowerCase().includes('business') || 
             demographicInfo.occupation.toLowerCase().includes('entrepreneur')) {
-          occupationAnalysis = `उपयोगकर्ता एक व्यवसायी है, इसलिए व्यक्तिगत और व्यावसायिक वित्त को अलग रखने और व्यवसाय से अलग क्षेत्रों में निवेश करने की सलाह दें।`;
+          occupationAnalysis = `The user is a business person, so advise them to keep personal and business finances separate and invest in areas outside their business.`;
         } else if (demographicInfo.occupation.toLowerCase().includes('government') || 
                  demographicInfo.occupation.toLowerCase().includes('public sector')) {
-          occupationAnalysis = `उपयोगकर्ता सरकारी कर्मचारी है, इसलिए NPS अतिरिक्त योगदान लाभ और VPF पर विचार करने की सलाह दें।`;
+          occupationAnalysis = `The user is a government employee, so advise them to consider NPS additional contribution benefits and VPF.`;
         } else if (demographicInfo.occupation.toLowerCase().includes('private') || 
                  demographicInfo.occupation.toLowerCase().includes('corporate')) {
-          occupationAnalysis = `उपयोगकर्ता निजी क्षेत्र में काम करता है, इसलिए नौकरी की अस्थिरता को देखते हुए मजबूत आपातकालीन फंड बनाने की सलाह दें।`;
+          occupationAnalysis = `The user works in the private sector, so advise them to build a strong emergency fund considering job instability.`;
         } else if (demographicInfo.occupation.toLowerCase().includes('freelance') || 
                  demographicInfo.occupation.toLowerCase().includes('self-employed')) {
-          occupationAnalysis = `उपयोगकर्ता फ्रीलांसर/स्वरोजगार है, इसलिए बड़े आपातकालीन फंड और अनियमित आय के प्रबंधन के लिए ऑटो-डेबिट के माध्यम से अनुशासित निवेश की सलाह दें।`;
+          occupationAnalysis = `The user is a freelancer/self-employed, so advise them to maintain a larger emergency fund and disciplined investments through auto-debit to manage irregular income.`;
         }
       }
       
@@ -723,17 +723,17 @@ async function callMistralAPI(query, context, previousMessages = []) {
       let psychologicalAnalysis = "";
       if (psychologicalProfile) {
         if (psychologicalProfile.financialAnxiety === 'high') {
-          psychologicalAnalysis += `उपयोगकर्ता की वित्तीय चिंता अधिक है, इसलिए आश्वासक भाषा का उपयोग करें और निवेश की सुरक्षा विशेषताओं पर जोर दें। `;
+          psychologicalAnalysis += `The user has high financial anxiety, so use reassuring language and emphasize safety features of investments. `;
         }
         
         if (psychologicalProfile.decisionMakingStyle === 'analytical') {
-          psychologicalAnalysis += `उपयोगकर्ता विश्लेषणात्मक निर्णय लेने वाला है, इसलिए विस्तृत डेटा और तुलनात्मक विश्लेषण प्रदान करें। `;
+          psychologicalAnalysis += `The user is an analytical decision-maker, so provide detailed data and comparative analysis. `;
         } else if (psychologicalProfile.decisionMakingStyle === 'intuitive') {
-          psychologicalAnalysis += `उपयोगकर्ता सहज निर्णय लेने वाला है, इसलिए बड़ी तस्वीर के लाभों पर ध्यान केंद्रित करें और उदाहरणों का उपयोग करें। `;
+          psychologicalAnalysis += `The user is an intuitive decision-maker, so focus on big picture benefits and use examples. `;
         } else if (psychologicalProfile.decisionMakingStyle === 'consultative') {
-          psychologicalAnalysis += `उपयोगकर्ता परामर्शदात्मक निर्णय लेने वाला है, इसलिए विभिन्न विशेषज्ञ दृष्टिकोण प्रदान करें। `;
+          psychologicalAnalysis += `The user is a consultative decision-maker, so provide various expert perspectives. `;
         } else if (psychologicalProfile.decisionMakingStyle === 'spontaneous') {
-          psychologicalAnalysis += `उपयोगकर्ता स्वतःस्फूर्त निर्णय लेने वाला है, इसलिए स्पष्ट, कार्रवाई योग्य चरण प्रदान करें। `;
+          psychologicalAnalysis += `The user is a spontaneous decision-maker, so provide clear, actionable steps. `;
         }
       }
       
