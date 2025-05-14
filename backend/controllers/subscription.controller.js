@@ -79,7 +79,7 @@ exports.subscribe = async (req, res) => {
     console.error('Subscription error:', error);
     return res.status(500).json({ 
       success: false, 
-      message: 'सर्वरतत्रुटि, कृपयाबबादममेंनपुनः प्रयास करेंयास करें' 
+      message: 'Server error, please try again later' 
     });
   }
 };
@@ -120,7 +120,7 @@ exports.unsubscribe = async (req, res) => {
     console.error('Unsubscribe error:', error);
     return res.status(500).json({ 
       success: false, 
-      meसर्वर त्रुटिर कृपया,बादपमेंदपुनः प्रयास करेंपुनः प्रयास करें' 
+      message: 'Server error, please try again later' 
     });
   }
 };
@@ -184,7 +184,7 @@ exports.sendNewsletter = async (req, res) => {
     console.error('Send newsletter error:', error);
     return res.status(500).json({ 
       success: false, 
-सर्वरmत्रुटिe कृपया बाद:मेंरपुनःरप्रयासककरेंबाद में पुनः प्रयास करें' 
+      message: 'Server error, please try again later' 
     });
   }
 };
@@ -281,7 +281,8 @@ exports.notifyNewContent = async (req, res) => {
   } catch (error) {
     console.error('Notify new content error:', error);
     return res.status(500).json({ 
-      success: fसर्वरतत्रुटि  कृपया बादममेंपपुनःपप्रयासककरें कृपया बाद में पुनः प्रयास करें' 
+      success: false, 
+      message: 'Server error, please try again later' 
     });
   }
 };
