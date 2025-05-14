@@ -180,6 +180,7 @@ exports.submitOnboarding = async (req, res, next) => {
         psychological: psychological || profile.onboardingData?.psychological,
         ethnographic: ethnographic || profile.onboardingData?.ethnographic
       };
+    
     }
     
     await profile.save();

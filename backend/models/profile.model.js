@@ -22,8 +22,7 @@ const profileSchema = new mongoose.Schema({
   },
   riskAppetite: {
     type: String,
-    enum: ['low', 'medium', 'high'],
-    default: 'medium'
+    enum: ['low', 'medium', 'high']
   },
   goals: [{
     type: String,
@@ -31,13 +30,11 @@ const profileSchema = new mongoose.Schema({
   }], // will be used for financialGoals
   investmentTimeframe: {
     type: String,
-    enum: ['short_term', 'medium_term', 'long_term'],
-    default: 'medium_term'
+    enum: ['short_term', 'medium_term', 'long_term']
   },
   riskTolerance: {
     type: String,
-    enum: ['very_low', 'low', 'medium', 'high', 'very_high'],
-    default: 'medium'
+    enum: ['very_low', 'low', 'medium', 'high', 'very_high']
   },
   existingInvestments: [{
     type: String,
@@ -46,8 +43,7 @@ const profileSchema = new mongoose.Schema({
   knowledgeAssessment: {
     financialKnowledgeLevel: {
       type: String,
-      enum: ['beginner', 'intermediate', 'advanced'],
-      default: 'beginner'
+      enum: ['beginner', 'intermediate', 'advanced']
     }
   },
   onboardingData: {
@@ -60,18 +56,15 @@ const profileSchema = new mongoose.Schema({
     psychological: {
       riskTolerance: {
         type: String,
-        enum: ['very_low', 'low', 'medium', 'high', 'very_high'],
-        default: 'medium'
+        enum: ['very_low', 'low', 'medium', 'high', 'very_high']
       },
       financialAnxiety: {
         type: String,
-        enum: ['low', 'medium', 'high'],
-        default: 'medium'
+        enum: ['low', 'medium', 'high']
       },
       decisionMakingStyle: {
         type: String,
-        enum: ['analytical', 'intuitive', 'consultative', 'spontaneous'],
-        default: 'analytical'
+        enum: ['analytical', 'intuitive', 'consultative', 'spontaneous']
       }
     },
     ethnographic: {
@@ -79,8 +72,7 @@ const profileSchema = new mongoose.Schema({
       financialBeliefs: [String],
       communityInfluence: {
         type: String,
-        enum: ['low', 'medium', 'high'],
-        default: 'medium'
+        enum: ['low', 'medium', 'high']
       }
     }
   }

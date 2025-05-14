@@ -93,4 +93,3 @@ The backend follows a modular architecture with the following structure:
 - cors – Cross-Origin Resource Sharing
 - express-validator – Input validation
 - winston / morgan – Logging
-- express-rate-limit – API rate limiting

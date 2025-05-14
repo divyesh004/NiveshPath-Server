@@ -25,11 +25,19 @@ exports.protect = async (req, res, next) => {
     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
     // 3) Check if user still exists
-    const currentUser = await User.findById(decoded.id || decoded.userId);
+    const userId = decoded.userId || decoded.id;
+    if (!userId) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Invalid token payload. Please log in again.'
+      });
+    }
+    
+    const currentUser = await User.findById(userId);
     if (!currentUser) {
       return res.status(401).json({
         status: 'fail',
-        message: 'The user belonging to this token no longer exists. Please log in again.'
+        message: 'User not found. Please log in again.'
       });
     }
 

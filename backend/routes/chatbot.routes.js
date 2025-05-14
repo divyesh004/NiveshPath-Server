@@ -13,6 +13,7 @@ router.use(authenticate);
 router.post(
   '/query',
   chatbotMiddleware.chatbotRateLimit,
+  chatbotMiddleware.enhanceQueryWithContext,
   [
     body('query')
       .notEmpty()
