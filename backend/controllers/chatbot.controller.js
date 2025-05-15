@@ -362,6 +362,26 @@ exports.deleteSession = async (req, res, next) => {
 // Helper function to call Mistral AI API
 async function callMistralAPI(query, context, previousMessages = []) {
   try {
+    // Check if the query is a short greeting or simple message
+    const shortQueryPattern = /^\s*(hi|hello|hey|namaste|hola|greetings|howdy|sup|yo|hii|hiii|hiiii|helo|hellow|hru|wassup|whats up|what's up)\s*$/i;
+    if (shortQueryPattern.test(query.trim())) {
+      // For short greetings, return a brief response without calling the API
+      const shortResponses = [
+        "Hello! How can I help with your financial questions today?",
+        "Hi there! What financial topic would you like to discuss?",
+        "Hello! I'm your NiveshPath financial assistant. What can I help you with?",
+        "Hi! Ready to discuss your financial goals or questions?",
+        "Hello! How can I assist with your financial planning today?"
+      ];
+      
+      // Select a random response from the options
+      const randomIndex = Math.floor(Math.random() * shortResponses.length);
+      return {
+        text: shortResponses[randomIndex],
+        raw: { choices: [{ message: { content: shortResponses[randomIndex] } }] }
+      };
+    }
+    
     // Create a personalized system prompt based on user profile
     let systemPrompt = 'You are a financial advisor assistant for NiveshPath, a personal finance education platform for Indian users. FORMAT YOUR RESPONSES APPROPRIATELY: Present tabular data in markdown tables, use bullet points for lists, and use paragraphs for explanations. Always structure your response for maximum readability and clarity. ';
     
@@ -775,6 +795,13 @@ Provide a DETAILED COMPARISON between direct stock investments and mutual funds 
       role: 'user',
       content: userQuery
     });
+    
+    // Check if the query is very short (less than 5 words) but not a greeting
+    const wordCount = query.trim().split(/\s+/).length;
+    if (wordCount < 5 && !shortQueryPattern.test(query.trim())) {
+      // For short queries, instruct the model to give brief responses
+      systemPrompt += '\n\nIMPORTANT: The user has sent a very short query. Keep your response brief and to the point. Do not provide lengthy explanations. Limit your response to 1-2 sentences.';
+    }
     
     // Make API request with enhanced parameters for more dynamic responses
     const response = await axios.post(

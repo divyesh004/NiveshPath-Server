@@ -56,15 +56,18 @@ const profileSchema = new mongoose.Schema({
     psychological: {
       riskTolerance: {
         type: String,
-        enum: ['very_low', 'low', 'medium', 'high', 'very_high']
+        enum: ['very_low', 'low', 'medium', 'high', 'very_high'],
+        default: 'medium'
       },
       financialAnxiety: {
         type: String,
-        enum: ['low', 'medium', 'high']
+        enum: ['low', 'medium', 'high'],
+        default: 'medium'
       },
       decisionMakingStyle: {
         type: String,
-        enum: ['analytical', 'intuitive', 'consultative', 'spontaneous']
+        enum: ['analytical', 'intuitive', 'consultative', 'spontaneous'],
+        default: 'analytical'
       }
     },
     ethnographic: {
@@ -72,7 +75,8 @@ const profileSchema = new mongoose.Schema({
       financialBeliefs: [String],
       communityInfluence: {
         type: String,
-        enum: ['low', 'medium', 'high']
+        enum: ['low', 'medium', 'high'],
+        default: 'medium'
       }
     }
   }

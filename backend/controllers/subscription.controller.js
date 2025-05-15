@@ -79,7 +79,7 @@ exports.subscribe = async (req, res) => {
     console.error('Subscription error:', error);
     return res.status(500).json({ 
       success: false, 
-      message: 'Server error, please try again later' 
+      message: 'सर्वर त्रुटि, कृपया बाद में पुनः प्रयास करें' 
     });
   }
 };
@@ -120,7 +120,7 @@ exports.unsubscribe = async (req, res) => {
     console.error('Unsubscribe error:', error);
     return res.status(500).json({ 
       success: false, 
-      message: 'Server error, please try again later' 
+      message: 'सर्वर त्रुटि, कृपया बाद में पुनः प्रयास करें' 
     });
   }
 };
@@ -184,7 +184,7 @@ exports.sendNewsletter = async (req, res) => {
     console.error('Send newsletter error:', error);
     return res.status(500).json({ 
       success: false, 
-      message: 'Server error, please try again later' 
+      message: 'सर्वर त्रुटि, कृपया बाद में पुनः प्रयास करें' 
     });
   }
 };
@@ -282,7 +282,7 @@ exports.notifyNewContent = async (req, res) => {
     console.error('Notify new content error:', error);
     return res.status(500).json({ 
       success: false, 
-      message: 'Server error, please try again later' 
+      message: 'सर्वर त्रुटि, कृपया बाद में पुनः प्रयास करें' 
     });
   }
 };
