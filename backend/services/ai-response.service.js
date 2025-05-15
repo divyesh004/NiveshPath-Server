@@ -4,6 +4,41 @@
  */
 
 const axios = require('axios');
+const LanguageDetect = require('languagedetect');
+const lngDetector = new LanguageDetect();
+
+// Configure language detector to focus on our primary languages
+lngDetector.setLanguageType('iso2');
+
+/**
+ * Detect the language of a text string
+ * @param {string} text - Text to analyze
+ * @returns {string} - Detected language code ('en' for English, 'hi' for Hindi, etc.)
+ */
+function detectLanguage(text) {
+  if (!text || text.trim().length === 0) {
+    return 'en'; // Default to English for empty text
+  }
+  
+  const detections = lngDetector.detect(text, 2);
+  
+  // If no language detected or confidence is too low, default to English
+  if (!detections || detections.length === 0) {
+    return 'en';
+  }
+  
+  // Get the most probable language
+  const [lang, confidence] = detections[0];
+  
+  // Map language codes to our supported languages
+  // Currently focusing on English and Hindi
+  if (lang === 'hi') {
+    return 'hi';
+  }
+  
+  // Default to English for all other languages
+  return 'en';
+}
 
 /**
  * Generate AI response based on user query and context
@@ -15,78 +50,153 @@ async function generateAIResponse(query, context) {
   try {
     const { profileStatus, userProfile, isInvestmentRelated, isSmartInvestmentQuery, isGoalBasedPlanningQuery, isPeerComparisonQuery, isFinancialHealthQuery } = context;
     
-    // Prepare system prompt based on available profile data
-    let systemPrompt = `तुम NiveshPath के AI वित्तीय सलाहकार हो, जो भारतीय उपयोगकर्ताओं को वित्तीय शिक्षा और सलाह प्रदान करते हो।`;
+    // Detect the language of the user's query
+    const detectedLanguage = detectLanguage(query);
     
-    // Add available profile information to the prompt
+    // Prepare system prompt based on available profile data and detected language
+    let systemPrompt = detectedLanguage === 'hi' 
+      ? `You are NiveshPath's AI financial advisor, providing financial education and advice to Indian users.` 
+      : `You are NiveshPath's AI financial advisor, providing financial education and advice to Indian users.`;
+    
+    // Add available profile information to the prompt based on detected language
     if (userProfile) {
-      systemPrompt += `\n\nउपयोगकर्ता की प्रोफाइल जानकारी:`;
-      if (userProfile.name) systemPrompt += `\n- नाम: ${userProfile.name}`;
-      if (userProfile.age) systemPrompt += `\n- उम्र: ${userProfile.age} वर्ष`;
-      if (userProfile.income) systemPrompt += `\n- आय: ₹${userProfile.income} प्रति वर्ष`;
-      if (userProfile.riskAppetite) systemPrompt += `\n- जोखिम क्षमता: ${userProfile.riskAppetite}`;
-      if (userProfile.goals && userProfile.goals.length > 0) {
-        systemPrompt += `\n- वित्तीय लक्ष्य: ${userProfile.goals.join(', ')}`;
-      }
-      
-      // Add onboarding data if available
-      if (userProfile.onboardingData) {
-        if (userProfile.onboardingData.demographic) {
-          const demo = userProfile.onboardingData.demographic;
-          if (demo.location) systemPrompt += `\n- स्थान: ${demo.location}`;
-          if (demo.occupation) systemPrompt += `\n- व्यवसाय: ${demo.occupation}`;
+      if (detectedLanguage === 'hi') {
+        systemPrompt += `\n\nUser Profile Information:`;
+        if (userProfile.name) systemPrompt += `\n- Name: ${userProfile.name}`;
+        if (userProfile.age) systemPrompt += `\n- Age: ${userProfile.age} years`;
+        if (userProfile.income) systemPrompt += `\n- Income: ₹${userProfile.income} per year`;
+        if (userProfile.riskAppetite) systemPrompt += `\n- Risk Appetite: ${userProfile.riskAppetite}`;
+        if (userProfile.goals && userProfile.goals.length > 0) {
+          systemPrompt += `\n- Financial Goals: ${userProfile.goals.join(', ')}`;
+        }
+        
+        // Add onboarding data if available
+        if (userProfile.onboardingData) {
+          if (userProfile.onboardingData.demographic) {
+            const demo = userProfile.onboardingData.demographic;
+            if (demo.location) systemPrompt += `\n- Location: ${demo.location}`;
+            if (demo.occupation) systemPrompt += `\n- Occupation: ${demo.occupation}`;
+          }
+        }
+      } else {
+        systemPrompt += `\n\nUser Profile Information:`;
+        if (userProfile.name) systemPrompt += `\n- Name: ${userProfile.name}`;
+        if (userProfile.age) systemPrompt += `\n- Age: ${userProfile.age} years`;
+        if (userProfile.income) systemPrompt += `\n- Income: ₹${userProfile.income} per year`;
+        if (userProfile.riskAppetite) systemPrompt += `\n- Risk Appetite: ${userProfile.riskAppetite}`;
+        if (userProfile.goals && userProfile.goals.length > 0) {
+          systemPrompt += `\n- Financial Goals: ${userProfile.goals.join(', ')}`;
+        }
+        
+        // Add onboarding data if available
+        if (userProfile.onboardingData) {
+          if (userProfile.onboardingData.demographic) {
+            const demo = userProfile.onboardingData.demographic;
+            if (demo.location) systemPrompt += `\n- Location: ${demo.location}`;
+            if (demo.occupation) systemPrompt += `\n- Occupation: ${demo.occupation}`;
+          }
         }
       }
     }
     
-    // Add instructions based on profile completeness
-    systemPrompt += `\n\nप्रोफाइल पूर्णता: ${profileStatus.completionPercentage}%`;
-    
-    if (profileStatus.completionPercentage < 50) {
-      systemPrompt += `\n\nउपयोगकर्ता की प्रोफाइल अधूरी है। उत्तर देते समय, उपयोगकर्ता से अधिक जानकारी मांगें और प्रोफाइल को पूरा करने के लिए प्रोत्साहित करें। हालांकि, उनके प्रश्न का उत्तर अवश्य दें।`;
-    } else if (profileStatus.completionPercentage < 80) {
-      systemPrompt += `\n\nउपयोगकर्ता की प्रोफाइल आंशिक रूप से पूरी है। उत्तर देते समय, उपयोगकर्ता से अधिक विशिष्ट जानकारी मांगें जो उनके प्रश्न से संबंधित हो।`;
+    // Add instructions based on profile completeness and detected language
+    if (detectedLanguage === 'hi') {
+      systemPrompt += `\n\nProfile Completion: ${profileStatus.completionPercentage}%`;
+      
+      if (profileStatus.completionPercentage < 50) {
+        systemPrompt += `\n\nThe user's profile is incomplete. When answering, ask the user for more information and encourage them to complete their profile. However, make sure to answer their question.`;
+      } else if (profileStatus.completionPercentage < 80) {
+        systemPrompt += `\n\nThe user's profile is partially complete. When answering, ask the user for more specific information related to their question.`;
+      }
+      
+      // Add instructions for interactive conversation in Hindi
+      systemPrompt += `\n\nImportant Instructions:
+1. Provide direct and clear answers to the user's questions.
+2. Ask relevant follow-up questions related to their original query.
+3. Answer in the context of Indian financial markets and regulations.
+4. Explain complex financial concepts in simple language.
+5. Interact with the user as if you are a real financial advisor.`;
+    } else {
+      systemPrompt += `\n\nProfile Completion: ${profileStatus.completionPercentage}%`;
+      
+      if (profileStatus.completionPercentage < 50) {
+        systemPrompt += `\n\nThe user's profile is incomplete. When answering, ask the user for more information and encourage them to complete their profile. However, make sure to answer their question.`;
+      } else if (profileStatus.completionPercentage < 80) {
+        systemPrompt += `\n\nThe user's profile is partially complete. When answering, ask the user for more specific information related to their question.`;
+      }
+      
+      // Add instructions for interactive conversation in English
+      systemPrompt += `\n\nImportant Instructions:
+1. Provide direct and clear answers to the user's questions.
+2. Ask relevant follow-up questions related to their original query.
+3. Answer in the context of Indian financial markets and regulations.
+4. Explain complex financial concepts in simple language.
+5. Interact with the user as if you are a real financial advisor.`;
     }
     
-    // Add instructions for interactive conversation
-    systemPrompt += `\n\nमहत्वपूर्ण निर्देश:
-1. उपयोगकर्ता के प्रश्न का सीधा और स्पष्ट उत्तर दें।
-2. उपयोगकर्ता से संबंधित प्रश्न पूछें जो उनके मूल प्रश्न से जुड़े हों।
-3. भारतीय वित्तीय बाजार और नियमों के संदर्भ में उत्तर दें।
-4. जटिल वित्तीय अवधारणाओं को सरल भाषा में समझाएं।
-5. उपयोगकर्ता के साथ संवाद करें जैसे आप एक वास्तविक वित्तीय सलाहकार हों।`;
-    
-    // Add specialized instructions based on query type
+    // Add specialized instructions based on query type and detected language
     if (isSmartInvestmentQuery) {
-      systemPrompt += `\n\nस्मार्ट निवेश सलाहकार के रूप में:
-1. उपयोगकर्ता के प्रोफाइल, व्यवहार, लक्ष्यों और समान क्षेत्र में रहने वाले अन्य लोगों के रुझानों के आधार पर सर्वोत्तम निवेश विकल्प सुझाएं।
-2. SIP, म्यूचुअल फंड, स्टॉक, सोना, रियल एस्टेट, क्रिप्टो आदि विभिन्न निवेश विकल्पों के बारे में जानकारी दें।
-3. हर सिफारिश के साथ "यह सिफारिश क्यों?" समझाएं - अपनी सलाह के पीछे के कारण बताएं।
-4. उपयोगकर्ता के जोखिम प्रोफाइल और वित्तीय लक्ष्यों के अनुसार व्यक्तिगत सिफारिशें दें।`;
+      if (detectedLanguage === 'hi') {
+        systemPrompt += `\n\nAs a Smart Investment Advisor:
+1. Suggest the best investment options based on the user's profile, behavior, goals, and trends of people living in similar areas.
+2. Provide information about various investment options such as SIP, mutual funds, stocks, gold, real estate, crypto, etc.
+3. Explain "Why this recommendation?" with each recommendation - explain the reasoning behind your advice.
+4. Provide personalized recommendations according to the user's risk profile and financial goals.`;
+      } else {
+        systemPrompt += `\n\nAs a Smart Investment Advisor:
+1. Suggest the best investment options based on the user's profile, behavior, goals, and trends of people living in similar areas.
+2. Provide information about various investment options such as SIP, mutual funds, stocks, gold, real estate, crypto, etc.
+3. Explain "Why this recommendation?" with each recommendation - explain the reasoning behind your advice.
+4. Provide personalized recommendations according to the user's risk profile and financial goals.`;
+      }
     }
     
     if (isGoalBasedPlanningQuery) {
-      systemPrompt += `\n\nलक्ष्य-आधारित योजना के लिए:
-1. उपयोगकर्ता के वित्तीय लक्ष्यों (जैसे घर खरीदना, बच्चों की शिक्षा, सेवानिवृत्ति) के बारे में पूछें और उन्हें स्पष्ट रूप से परिभाषित करने में मदद करें।
-2. लक्ष्य प्राप्ति का प्रतिशत और आवश्यक मासिक योगदान के बारे में जानकारी दें।
-3. लक्ष्य से विचलन या बेहतर विकल्पों के बारे में सलाह दें।
-4. समय सीमा और आवश्यक धनराशि के आधार पर लक्ष्य प्राप्ति के लिए योजना बनाने में मदद करें।`;
+      if (detectedLanguage === 'hi') {
+        systemPrompt += `\n\nFor Goal-Based Planning:
+1. Ask about the user's financial goals (such as buying a house, children's education, retirement) and help them define them clearly.
+2. Provide information about goal achievement percentage and required monthly contributions.
+3. Advise on goal deviations or better alternatives.
+4. Help plan for goal achievement based on timeline and required amount.`;
+      } else {
+        systemPrompt += `\n\nFor Goal-Based Planning:
+1. Ask about the user's financial goals (such as buying a house, children's education, retirement) and help them define them clearly.
+2. Provide information about goal achievement percentage and required monthly contributions.
+3. Advise on goal deviations or better alternatives.
+4. Help plan for goal achievement based on timeline and required amount.`;
+      }
     }
     
     if (isPeerComparisonQuery) {
-      systemPrompt += `\n\nपीयर कंपैरिज़न एनालिटिक्स के लिए:
-1. "आपके शहर, पेशे, आय सीमा में अन्य लोग कैसे निवेश कर रहे हैं" इस बारे में जानकारी दें।
-2. गुमनाम डेटा के आधार पर हीटमैप और अंतर्दृष्टि प्रदान करें।
-3. उपयोगकर्ता के समान प्रोफाइल वाले लोगों के निवेश पैटर्न के बारे में बताएं।
-4. उपयोगकर्ता के निवेश पैटर्न की तुलना उनके समकक्षों से करें और सुधार के सुझाव दें।`;
+      if (detectedLanguage === 'hi') {
+        systemPrompt += `\n\nFor Peer Comparison Analytics:
+1. Provide information about "how other people in your city, profession, income range are investing".
+2. Provide heatmaps and insights based on anonymized data.
+3. Describe investment patterns of people with similar profiles to the user.
+4. Compare the user's investment pattern with their peers and suggest improvements.`;
+      } else {
+        systemPrompt += `\n\nFor Peer Comparison Analytics:
+1. Provide information about "how other people in your city, profession, income range are investing".
+2. Provide heatmaps and insights based on anonymized data.
+3. Describe investment patterns of people with similar profiles to the user.
+4. Compare the user's investment pattern with their peers and suggest improvements.`;
+      }
     }
     
     if (isFinancialHealthQuery) {
-      systemPrompt += `\n\nवित्तीय स्वास्थ्य स्कोर के लिए:
-1. खर्च, बचत, आय, क्रेडिट और निवेश के आधार पर AI-जनित स्कोर के बारे में बताएं।
-2. मासिक अपडेट के साथ सुधार के टिप्स प्रदान करें।
-3. उपयोगकर्ता के वित्तीय स्वास्थ्य को बेहतर बनाने के लिए व्यावहारिक सुझाव दें।
-4. वित्तीय स्वास्थ्य के विभिन्न पहलुओं (बचत, निवेश, ऋण प्रबंधन, आदि) पर प्रतिक्रिया दें।`;
+      if (detectedLanguage === 'hi') {
+        systemPrompt += `\n\nFor Financial Health Score:
+1. Describe AI-generated scores based on expenses, savings, income, credit, and investments.
+2. Provide improvement tips with monthly updates.
+3. Offer practical suggestions to improve the user's financial health.
+4. Provide feedback on various aspects of financial health (savings, investments, debt management, etc.).`;
+      } else {
+        systemPrompt += `\n\nFor Financial Health Score:
+1. Describe AI-generated scores based on expenses, savings, income, credit, and investments.
+2. Provide improvement tips with monthly updates.
+3. Offer practical suggestions to improve the user's financial health.
+4. Provide feedback on various aspects of financial health (savings, investments, debt management, etc.).`;
+      }
     }
     
     // Here you would normally call an external AI API like OpenAI or a local model
@@ -130,6 +240,10 @@ function simulateAIResponse(query, context, systemPrompt) {
   const { profileStatus, userProfile, isInvestmentRelated, isSmartInvestmentQuery, isGoalBasedPlanningQuery, isPeerComparisonQuery, isFinancialHealthQuery } = context;
   const lowerQuery = query.toLowerCase();
   
+  // Detect the language of the user's query
+  const detectedLanguage = detectLanguage(query);
+  const isHindi = detectedLanguage === 'hi';
+  
   // First check if the question is related to personal finance
   const isPersonalFinanceQuery = lowerQuery.includes('personal finance') || lowerQuery.includes('वित्तीय सलाह') || 
     lowerQuery.includes('my money') || lowerQuery.includes('मेरा पैसा') || 
@@ -149,58 +263,117 @@ function simulateAIResponse(query, context, systemPrompt) {
     lowerQuery.includes('financial goals') || lowerQuery.includes('वित्तीय लक्ष्य') || 
     lowerQuery.includes('saving money') || lowerQuery.includes('पैसे बचाना') || isInvestmentRelated;
     
-  // Answer personal finance questions based on profile completeness
+  // Answer personal finance questions based on profile completeness and language
   if (isPersonalFinanceQuery) {
     // Profile is incomplete
     if (profileStatus.completionPercentage < 50) {
-      let response = `To answer your question about personal finance, I need more information in your profile.\n\n`;
-      response += `Currently, your profile is ${profileStatus.completionPercentage}% complete. For better financial advice, please complete your profile.\n\n`;
-      response += `However, I can give you a general answer to your question:\n\n`;
+      let response = isHindi
+        ? `आपके व्यक्तिगत वित्त के प्रश्न का उत्तर देने के लिए, मुझे आपकी प्रोफ़ाइल में अधिक जानकारी की आवश्यकता है।\n\n`
+        : `To answer your question about personal finance, I need more information in your profile.\n\n`;
       
-      // Provide general answers based on query type
+      response += isHindi
+        ? `वर्तमान में, आपकी प्रोफ़ाइल ${profileStatus.completionPercentage}% पूर्ण है। बेहतर वित्तीय सलाह के लिए, कृपया अपनी प्रोफ़ाइल पूरी करें।\n\n`
+        : `Currently, your profile is ${profileStatus.completionPercentage}% complete. For better financial advice, please complete your profile.\n\n`;
+      
+      response += isHindi
+        ? `हालांकि, मैं आपके प्रश्न का एक सामान्य उत्तर दे सकता हूं:\n\n`
+        : `However, I can give you a general answer to your question:\n\n`;
+      
+      // Provide general answers based on query type and language
       if (isSmartInvestmentQuery) {
-        response += `For investments, you should choose options based on your risk appetite, investment timeline, and financial goals. Common options include mutual funds, stocks, bonds, and fixed deposits.`;
+        response += isHindi
+          ? `निवेश के लिए, आपको अपनी जोखिम क्षमता, निवेश समयसीमा और वित्तीय लक्ष्यों के आधार पर विकल्प चुनना चाहिए। सामान्य विकल्पों में म्यूचुअल फंड, स्टॉक, बॉन्ड और फिक्स्ड डिपॉजिट शामिल हैं।`
+          : `For investments, you should choose options based on your risk appetite, investment timeline, and financial goals. Common options include mutual funds, stocks, bonds, and fixed deposits.`;
       } else if (isGoalBasedPlanningQuery) {
-        response += `For goal-based planning, you should clearly define your goals, set a timeline, and then create a regular savings and investment plan to achieve those goals.`;
+        response += isHindi
+          ? `लक्ष्य-आधारित योजना के लिए, आपको अपने लक्ष्यों को स्पष्ट रूप से परिभाषित करना चाहिए, एक समयसीमा निर्धारित करनी चाहिए, और फिर उन लक्ष्यों को प्राप्त करने के लिए एक नियमित बचत और निवेश योजना बनानी चाहिए।`
+          : `For goal-based planning, you should clearly define your goals, set a timeline, and then create a regular savings and investment plan to achieve those goals.`;
       } else if (isPeerComparisonQuery) {
-        response += `To compare with your peers, we need information like your age, income, location, and occupation. This will help us tell you how people like you are investing.`;
+        response += isHindi
+          ? `To compare with your peers, we need information like your age, income, location, and occupation. This will help us tell you how people like you are investing.`
+          : `To compare with your peers, we need information like your age, income, location, and occupation. This will help us tell you how people like you are investing.`;
       } else if (isFinancialHealthQuery) {
-        response += `To calculate a financial health score, we need information about your income, expenses, savings, investments, and debts. This will allow us to provide you with an assessment of your overall financial situation.`;
+        response += isHindi
+          ? `To calculate a financial health score, we need information about your income, expenses, savings, investments, and debts. This will allow us to provide you with an assessment of your overall financial situation.`
+          : `To calculate a financial health score, we need information about your income, expenses, savings, investments, and debts. This will allow us to provide you with an assessment of your overall financial situation.`;
       } else {
-        response += `Personal finance management includes creating a budget, building an emergency fund, managing debt, investing, and planning for the future.`;
+        response += isHindi
+          ? `Personal finance management includes creating a budget, building an emergency fund, managing debt, investing, and planning for the future.`
+          : `Personal finance management includes creating a budget, building an emergency fund, managing debt, investing, and planning for the future.`;
       }
       
-      response += `\n\nWould you like to update your profile to receive more personalized advice?`;
+      response += isHindi
+        ? `\n\nWould you like to update your profile to receive more personalized advice?`
+        : `\n\nWould you like to update your profile to receive more personalized advice?`;
       return response;
     }
     // Profile is partially complete
      else if (profileStatus.completionPercentage < 80) {
-       let response = `Based on your question about personal finance, I can give you some advice.\n\n`;
-       response += `However, your profile is currently ${profileStatus.completionPercentage}% complete. For more personalized and accurate advice, please complete your profile.\n\n`;
+       let response = isHindi
+         ? `Based on your question about personal finance, I can give you some advice.\n\n`
+         : `Based on your question about personal finance, I can give you some advice.\n\n`;
+       
+       response += isHindi
+         ? `However, your profile is currently ${profileStatus.completionPercentage}% complete. For more personalized and accurate advice, please complete your profile.\n\n`
+         : `However, your profile is currently ${profileStatus.completionPercentage}% complete. For more personalized and accurate advice, please complete your profile.\n\n`;
        
        // Provide more personalized answers based on available profile information
        if (userProfile) {
-         response += `Based on your current information:\n`;
-         if (userProfile.age) response += `- Your age is ${userProfile.age} years\n`;
-         if (userProfile.income) response += `- Your income is ₹${userProfile.income} per year\n`;
-         if (userProfile.riskAppetite) response += `- Your risk appetite is ${userProfile.riskAppetite}\n`;
-         if (userProfile.goals && userProfile.goals.length > 0) response += `- Your financial goals: ${userProfile.goals.join(', ')}\n`;
+         response += isHindi
+           ? `Based on your current information:\n`
+           : `Based on your current information:\n`;
+         
+         if (userProfile.age) response += isHindi
+           ? `- Your age is ${userProfile.age} years\n`
+           : `- Your age is ${userProfile.age} years\n`;
+         
+         if (userProfile.income) response += isHindi
+           ? `- Your income is ₹${userProfile.income} per year\n`
+           : `- Your income is ₹${userProfile.income} per year\n`;
+         
+         if (userProfile.riskAppetite) response += isHindi
+           ? `- Your risk appetite is ${userProfile.riskAppetite}\n`
+           : `- Your risk appetite is ${userProfile.riskAppetite}\n`;
+         
+         if (userProfile.goals && userProfile.goals.length > 0) response += isHindi
+           ? `- Your financial goals: ${userProfile.goals.join(', ')}\n`
+           : `- Your financial goals: ${userProfile.goals.join(', ')}\n`;
+         
          response += `\n`;
        }
        
-       // Provide more specific answers based on query type
+       // Provide more specific answers based on query type and language
        if (isSmartInvestmentQuery || isGoalBasedPlanningQuery || isPeerComparisonQuery || isFinancialHealthQuery) {
          // Use existing logic for these queries - proceed to the existing code below
        } else {
-         response += `For personal finance management, I suggest the following:\n\n`;
-         response += `1. Aim to save at least 20% of your income\n`;
-         response += `2. Build an emergency fund equal to 3-6 months of expenses\n`;
-         response += `3. Track your expenses and create a budget\n`;
-         response += `4. Invest according to your risk profile\n`;
-         response += `5. Regularly review your financial situation\n\n`;
+         response += isHindi
+           ? `For personal finance management, I suggest the following:\n\n`
+           : `For personal finance management, I suggest the following:\n\n`;
+         
+         response += isHindi
+           ? `1. Aim to save at least 20% of your income\n`
+           : `1. Aim to save at least 20% of your income\n`;
+         
+         response += isHindi
+           ? `2. Build an emergency fund equal to 3-6 months of expenses\n`
+           : `2. Build an emergency fund equal to 3-6 months of expenses\n`;
+         
+         response += isHindi
+           ? `3. Track your expenses and create a budget\n`
+           : `3. Track your expenses and create a budget\n`;
+         
+         response += isHindi
+           ? `4. Invest according to your risk profile\n`
+           : `4. Invest according to your risk profile\n`;
+         
+         response += isHindi
+           ? `5. Regularly review your financial situation\n\n`
+           : `5. Regularly review your financial situation\n\n`;
        }
        
-       response += `What additional information would you like to add to your profile?`;
+       response += isHindi
+         ? `What additional information would you like to add to your profile?`
+         : `What additional information would you like to add to your profile?`;
        return response;
      }
      // Profile is complete - provide detailed personalized advice
@@ -364,5 +537,6 @@ Can you provide more details about your financial goals? How soon do you want to
 }
 
 module.exports = {
-  generateAIResponse
+  generateAIResponse,
+  detectLanguage // Export the language detection function for potential use in other modules
 };
