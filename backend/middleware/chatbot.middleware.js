@@ -67,12 +67,6 @@ function analyzeQueryIntent(query) {
   return 'general';
 };
 
-// Rate limiting middleware removed
-exports.chatbotRateLimit = (req, res, next) => {
-  // Simple pass-through middleware (rate limiting removed)
-  next();
-};
-
 // Middleware to validate chat session ownership
 exports.validateSessionOwnership = async (req, res, next) => {
   try {

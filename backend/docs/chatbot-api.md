@@ -14,9 +14,7 @@ Authorization: Bearer <your_jwt_token>
 
 ## Rate Limiting
 
-To prevent abuse, the chatbot API implements rate limiting:
-- 20 requests per 15-minute window per IP address
-- Exceeding this limit will result in a 429 Too Many Requests response
+~~Rate limiting has been removed from the chatbot API to allow unlimited requests.~~
 
 ## API Endpoints
 
@@ -150,7 +148,6 @@ The API returns appropriate HTTP status codes:
 - `401 Unauthorized`: Authentication required
 - `403 Forbidden`: Insufficient permissions
 - `404 Not Found`: Resource not found
-- `429 Too Many Requests`: Rate limit exceeded
 - `500 Internal Server Error`: Server error
 
 Error responses include a message field explaining the error:

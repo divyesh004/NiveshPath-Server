@@ -22,8 +22,6 @@ const { errorHandler } = require('./middlewares/error.middleware');
 // Initialize Express app
 const app = express();
 
-// Rate limiting removed
-
 // Apply middleware
 app.use(cors());
 app.use(express.json());

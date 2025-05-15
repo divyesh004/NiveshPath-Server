@@ -12,8 +12,6 @@ router.use(authenticate);
 // Submit a query to the chatbot
 router.post(
   '/query',
-  chatbotMiddleware.chatbotRateLimit,
-  chatbotMiddleware.enhanceQueryWithContext,
   [
     body('query')
       .notEmpty()
