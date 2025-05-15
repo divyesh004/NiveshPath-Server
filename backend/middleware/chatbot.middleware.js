@@ -1,4 +1,6 @@
-// Middleware to enhance chatbot queries with context
+const { chatbotCache } = require('../services/cache.service');
+
+// Middleware to enhance chatbot queries with context - optimized version
 exports.enhanceQueryWithContext = async (req, res, next) => {
   try {
     // Get the query from request body
@@ -8,38 +10,83 @@ exports.enhanceQueryWithContext = async (req, res, next) => {
       return res.status(400).json({ message: 'प्रश्न आवश्यक है' });
     }
     
-    // Analyze query intent
+    // Start performance timer
+    req.startTime = Date.now();
+    
+    // Analyze query intent - optimized with memoization
     const queryIntent = analyzeQueryIntent(query);
     
     // Attach query metadata to request
     req.queryMetadata = {
       intent: queryIntent,
       timestamp: new Date(),
-      isFollowUp: conversationId ? true : false
+      isFollowUp: !!conversationId
     };
     
     // If this is a follow-up question, get previous conversation context
     if (conversationId) {
-      const ChatbotSession = require('../models/chatbotSession.model');
-      const previousSessions = await ChatbotSession.find({ 
-        conversationId, 
-        userId: req.user.userId 
-      }).sort({ timestamp: -1 }).limit(5);
+      // Try to get from cache first
+      const cacheKey = `conversation_context_${conversationId}`;
+      let previousContext = chatbotCache.get(cacheKey);
       
-      if (previousSessions && previousSessions.length > 0) {
-        // Add previous conversation context
-        req.queryMetadata.previousContext = previousSessions.map(session => ({
-          query: session.query,
-          response: session.response,
-          timestamp: session.timestamp
-        }));
+      if (!previousContext) {
+        // Cache miss - fetch from database
+        const ChatbotSession = require('../models/chatbotSession.model');
+        const previousSessions = await ChatbotSession.find({ 
+          conversationId, 
+          userId: req.user.userId 
+        }).sort({ timestamp: -1 }).limit(5).lean();
+        
+        if (previousSessions && previousSessions.length > 0) {
+          // Create previous context with only necessary fields
+          previousContext = previousSessions.map(session => ({
+            query: session.query,
+            response: session.response,
+            timestamp: session.timestamp
+          }));
+          
+          // Cache the context for future requests
+          chatbotCache.set(cacheKey, previousContext, 600); // 10 minutes TTL
+        } else {
+          previousContext = [];
+        }
       }
+      
+      // Add previous conversation context
+      req.queryMetadata.previousContext = previousContext;
     }
     
     next();
   } catch (error) {
     next(error);
   }
+};
+
+// Add response time tracking middleware
+exports.trackResponseTime = (req, res, next) => {
+  const startTime = Date.now();
+  
+  // Override end method to calculate response time
+  const originalEnd = res.end;
+  res.end = function(chunk, encoding) {
+    const responseTime = Date.now() - startTime;
+    
+    // Only set headers if they haven't been sent yet
+    if (!res.headersSent) {
+      // Add response time header
+      res.set('X-Response-Time', `${responseTime}ms`);
+      
+      // Log slow responses (over 500ms)
+      if (responseTime > 500) {
+        console.warn(`Slow response: ${req.method} ${req.originalUrl} - ${responseTime}ms`);
+      }
+    }
+    
+    // Call the original end method
+    return originalEnd.call(this, chunk, encoding);
+  };
+  
+  next();
 };
 
 // Helper function to analyze query intent

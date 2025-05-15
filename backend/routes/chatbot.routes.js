@@ -3,11 +3,18 @@ const { body, param } = require('express-validator');
 const chatbotController = require('../controllers/chatbot.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
 const chatbotMiddleware = require('../middleware/chatbot.middleware');
+const compression = require('compression');
 
 const router = express.Router();
 
 // Apply authentication middleware to all chatbot routes
 router.use(authenticate);
+
+// Apply response time tracking to all chatbot routes
+router.use(chatbotMiddleware.trackResponseTime);
+
+// Apply compression to all chatbot routes
+router.use(compression());
 
 // Submit a query to the chatbot
 router.post(
@@ -25,6 +32,7 @@ router.post(
       .isMongoId()
       .withMessage('Conversation ID must be a valid MongoDB ID')
   ],
+  chatbotMiddleware.enhanceQueryWithContext,
   chatbotController.submitQuery
 );
 

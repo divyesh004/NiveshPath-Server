@@ -3,6 +3,14 @@ const { validationResult } = require('express-validator');
 const ChatbotSession = require('../models/chatbotSession.model');
 const Profile = require('../models/profile.model');
 const mongoose = require('mongoose');
+const { chatbotCache, userProfileCache } = require('../services/cache.service');
+const compression = require('compression');
+const util = require('util');
+// Add Redis client if available in production
+// const redis = require('redis');
+// const redisClient = redis.createClient(process.env.REDIS_URL);
+// const redisGetAsync = util.promisify(redisClient.get).bind(redisClient);
+// const redisSetAsync = util.promisify(redisClient.set).bind(redisClient);
 
 // Helper function to check profile completeness
 const checkProfileCompleteness = (profile) => {
@@ -47,8 +55,18 @@ exports.submitQuery = async (req, res, next) => {
     
     const { query, conversationId } = req.body;
     
-    // Get user profile for context
-    const userProfile = await Profile.findOne({ userId: req.user.userId });
+    // Get user profile for context - with caching
+    const profileCacheKey = `profile_${req.user.userId}`;
+    let userProfile = userProfileCache.get(profileCacheKey);
+    
+    if (!userProfile) {
+      // Cache miss - fetch from database
+      userProfile = await Profile.findOne({ userId: req.user.userId });
+      // Cache the profile for future requests
+      if (userProfile) {
+        userProfileCache.set(profileCacheKey, userProfile);
+      }
+    }
     
     // Check profile completeness
     const profileStatus = checkProfileCompleteness(userProfile);
@@ -72,12 +90,16 @@ exports.submitQuery = async (req, res, next) => {
       
       await chatSession.save();
       
-      return res.status(200).json({
-        response: incompleteProfileResponse.text,
-        sessionId: chatSession._id,
-        conversationId: chatSession.conversationId,
-        profileStatus
-      });
+      // Check if headers have already been sent before sending response
+      if (!res.headersSent) {
+        return res.status(200).json({
+          response: incompleteProfileResponse.text,
+          sessionId: chatSession._id,
+          conversationId: chatSession.conversationId,
+          profileStatus
+        });
+      }
+      return;
     }
     
     // Check if query is about future planning or investment recommendations
@@ -140,12 +162,16 @@ exports.submitQuery = async (req, res, next) => {
       
       await chatSession.save();
       
-      return res.status(200).json({
-        response: incompleteProfileResponse.text,
-        sessionId: chatSession._id,
-        conversationId: chatSession.conversationId,
-        profileStatus
-      });
+      // Check if headers have already been sent before sending response
+      if (!res.headersSent) {
+        return res.status(200).json({
+          response: incompleteProfileResponse.text,
+          sessionId: chatSession._id,
+          conversationId: chatSession.conversationId,
+          profileStatus
+        });
+      }
+      return;
     }
     
     // Prepare context for the AI with personalized information
@@ -189,12 +215,16 @@ exports.submitQuery = async (req, res, next) => {
       
       await chatSession.save();
       
-      return res.status(200).json({
-        response: incompleteProfileResponse.text,
-        sessionId: chatSession._id,
-        conversationId: chatSession.conversationId,
-        profileStatus
-      });
+      // Check if headers have already been sent before sending response
+      if (!res.headersSent) {
+        return res.status(200).json({
+          response: incompleteProfileResponse.text,
+          sessionId: chatSession._id,
+          conversationId: chatSession.conversationId,
+          profileStatus
+        });
+      }
+      return;
     }
     
     // Get conversation history if conversationId is provided
@@ -227,38 +257,89 @@ exports.submitQuery = async (req, res, next) => {
     
     await chatSession.save();
     
-    res.status(200).json({
-      response: response.text,
-      sessionId: chatSession._id,
-      conversationId: chatSession.conversationId
-    });
+    // Check if headers have already been sent before sending response
+    if (!res.headersSent) {
+      res.status(200).json({
+        response: response.text,
+        sessionId: chatSession._id,
+        conversationId: chatSession.conversationId
+      });
+    }
   } catch (error) {
     console.error('Chatbot error:', error);
     next(error);
   }
 };
 
-// Get user's chat history
+// Get user's chat history - with caching and optimized queries
 exports.getChatHistory = async (req, res, next) => {
   try {
     const { limit = 10, skip = 0 } = req.query;
+    const parsedLimit = parseInt(limit);
+    const parsedSkip = parseInt(skip);
+    const userId = req.user.userId;
     
-    const chatHistory = await ChatbotSession.find({ userId: req.user.userId })
+    // Create cache key based on user and pagination params
+    const cacheKey = `chat_history_${userId}_${parsedLimit}_${parsedSkip}`;
+    
+    // Try to get from cache first
+    const cachedResult = chatbotCache.get(cacheKey);
+    if (cachedResult) {
+      // Check if headers have already been sent before sending response
+      if (!res.headersSent) {
+        return res.status(200).json(cachedResult);
+      }
+      return;
+    }
+    
+    // Cache miss - fetch from database with optimized query
+    // Use lean() for faster query execution (returns plain JS objects)
+    const chatHistory = await ChatbotSession.find({ userId })
       .sort({ timestamp: -1 })
-      .skip(parseInt(skip))
-      .limit(parseInt(limit));
+      .skip(parsedSkip)
+      .limit(parsedLimit)
+      .lean();
     
-    const total = await ChatbotSession.countDocuments({ userId: req.user.userId });
+    // Use countDocuments only when necessary (first page or explicit count needed)
+    // For pagination, we can often determine if there are more items without an extra count query
+    let total;
+    let hasMore;
     
-    res.status(200).json({
+    if (parsedSkip === 0) {
+      // For first page, get accurate count
+      total = await ChatbotSession.countDocuments({ userId });
+      hasMore = total > parsedLimit;
+    } else {
+      // For subsequent pages, just check if there are more items
+      // by requesting one more item than needed and checking the length
+      const oneMoreItem = await ChatbotSession.find({ userId })
+        .sort({ timestamp: -1 })
+        .skip(parsedSkip + parsedLimit)
+        .limit(1)
+        .lean();
+      
+      hasMore = oneMoreItem.length > 0;
+      // Estimate total for pagination display
+      total = hasMore ? parsedSkip + parsedLimit + 1 : parsedSkip + chatHistory.length;
+    }
+    
+    const result = {
       chatHistory,
       pagination: {
         total,
-        limit: parseInt(limit),
-        skip: parseInt(skip),
-        hasMore: total > (parseInt(skip) + parseInt(limit))
+        limit: parsedLimit,
+        skip: parsedSkip,
+        hasMore
       }
-    });
+    };
+    
+    // Cache the result for future requests (short TTL for chat history)
+    chatbotCache.set(cacheKey, result, 300); // 5 minutes TTL
+    
+    // Check if headers have already been sent before sending response
+    if (!res.headersSent) {
+      res.status(200).json(result);
+    }
   } catch (error) {
     next(error);
   }
@@ -277,7 +358,11 @@ exports.submitFeedback = async (req, res, next) => {
     });
     
     if (!chatSession) {
-      return res.status(404).json({ message: 'Chat session not found' });
+      // Check if headers have already been sent before sending response
+      if (!res.headersSent) {
+        return res.status(404).json({ message: 'Chat session not found' });
+      }
+      return;
     }
     
     // Update feedback with more detailed information
@@ -293,35 +378,60 @@ exports.submitFeedback = async (req, res, next) => {
     // Log feedback for analysis (could be expanded to a dedicated analytics service)
     console.log(`Feedback received for session ${sessionId}: helpful=${helpful}, rating=${rating || 'N/A'}`);
     
-    res.status(200).json({
-      message: 'Feedback submitted successfully',
-      sessionId,
-      feedback: chatSession.feedback
-    });
+    // Check if headers have already been sent before sending response
+    if (!res.headersSent) {
+      res.status(200).json({
+        message: 'Feedback submitted successfully',
+        sessionId,
+        feedback: chatSession.feedback
+      });
+    }
   } catch (error) {
     console.error('Error submitting feedback:', error);
     next(error);
   }
 };
 
-// Get a specific chat session
+// Get a specific chat session - with caching
 exports.getChatSession = async (req, res, next) => {
   try {
     const { sessionId } = req.params;
+    const userId = req.user.userId;
     
     // Validate MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(sessionId)) {
       return res.status(400).json({ message: 'Invalid session ID format' });
     }
     
+    // Create cache key
+    const cacheKey = `chat_session_${sessionId}`;
+    
+    // Try to get from cache first
+    const cachedSession = chatbotCache.get(cacheKey);
+    if (cachedSession) {
+      // Verify the cached session belongs to the requesting user
+      if (cachedSession.userId.toString() === userId.toString()) {
+        return res.status(200).json({ chatSession: cachedSession });
+      }
+    }
+    
+    // Cache miss or unauthorized - fetch from database
+    // Use lean() for faster query execution
     const chatSession = await ChatbotSession.findOne({
       _id: sessionId,
-      userId: req.user.userId
-    });
+      userId
+    }).lean();
     
     if (!chatSession) {
-      return res.status(404).json({ message: 'Chat session not found' });
+      // Check if headers have already been sent before sending response
+      if (!res.headersSent) {
+        return res.status(404).json({ message: 'Chat session not found' });
+      }
+      return;
     }
+    
+    // Cache the result for future requests
+    chatbotCache.set(cacheKey, chatSession, 1800); // 30 minutes TTL
     
     res.status(200).json({ chatSession });
   } catch (error) {
@@ -345,7 +455,11 @@ exports.deleteSession = async (req, res, next) => {
     });
     
     if (!chatSession) {
-      return res.status(404).json({ message: 'Chat session not found' });
+      // Check if headers have already been sent before sending response
+      if (!res.headersSent) {
+        return res.status(404).json({ message: 'Chat session not found' });
+      }
+      return;
     }
     
     await chatSession.deleteOne();
@@ -359,8 +473,112 @@ exports.deleteSession = async (req, res, next) => {
   }
 };
 
-// Helper function to call Mistral AI API
+// Helper function to convert markdown tables to HTML tables
+function convertMarkdownTablesToHTML(text) {
+  if (!text) return text;
+  
+  // Regular expression to match markdown tables - more flexible pattern
+  const tableRegex = /(\|[^\n]*\|\r?\n)(\|\s*[-:]+[-|\s:]*\|\r?\n)((\|[^\n]*\|\r?\n)+)/g;
+  
+  // Function to sanitize HTML content
+  const sanitizeHTML = (str) => {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+  
+  return text.replace(tableRegex, (match, headerRow, separatorRow, bodyRows) => {
+    try {
+      // Process header row
+      const headers = headerRow.trim().split('|')
+        .filter(cell => cell !== undefined)
+        .map(cell => cell.trim())
+        .filter(cell => cell !== '');
+      
+      // If we don't have valid headers, return the original markdown
+      if (headers.length === 0) return match;
+      
+      // Process body rows
+      const rows = bodyRows.trim().split(/\r?\n/).map(row => {
+        return row.trim().split('|')
+          .filter(cell => cell !== undefined)
+          .map(cell => cell.trim())
+          .filter(cell => cell !== '');
+      }).filter(row => row.length > 0); // Filter out empty rows
+      
+      // If we don't have valid rows, return the original markdown
+      if (rows.length === 0) return match;
+      
+      // Generate HTML table with responsive design
+      let htmlTable = '<div style="overflow-x:auto;"><table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 15px 0;">';
+      
+      // Add header row
+      htmlTable += '<thead><tr>';
+      headers.forEach(header => {
+        htmlTable += `<th style="background-color: #f2f2f2; text-align: left; padding: 10px; border: 1px solid #ddd;">${sanitizeHTML(header)}</th>`;
+      });
+      htmlTable += '</tr></thead>';
+      
+      // Add body rows
+      htmlTable += '<tbody>';
+      rows.forEach(row => {
+        // Skip rows that don't have enough cells
+        if (row.length < Math.max(1, headers.length / 2)) return;
+        
+        htmlTable += '<tr>';
+        // Ensure we don't exceed the number of headers
+        const cellCount = Math.min(row.length, headers.length);
+        for (let i = 0; i < cellCount; i++) {
+          // Process cell content - handle markdown formatting within cells
+          let cellContent = sanitizeHTML(row[i] || '');
+          // Convert basic markdown formatting (bold, italic) to HTML
+          cellContent = cellContent
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // Bold
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>') // Italic
+            .replace(/`([^`]+)`/g, '<code>$1</code>'); // Code
+          
+          htmlTable += `<td style="border: 1px solid #ddd; padding: 8px;">${cellContent}</td>`;
+        }
+        htmlTable += '</tr>';
+      });
+      htmlTable += '</tbody>';
+      
+      htmlTable += '</table></div>';
+      return htmlTable;
+    } catch (error) {
+      console.error('Error converting markdown table to HTML:', error);
+      return match; // Return original markdown table if conversion fails
+    }
+  });
+}
+
+// Helper function to call Mistral AI API with caching for common queries
 async function callMistralAPI(query, context, previousMessages = []) {
+  // Check cache for common queries
+  const queryLower = query.toLowerCase().trim();
+  const isCommonQuery = (
+    queryLower.includes('what is sip') ||
+    queryLower.includes('what is mutual fund') ||
+    queryLower.includes('what is equity') ||
+    queryLower.includes('what is debt') ||
+    queryLower.includes('what is stock market') ||
+    queryLower.includes('what is nifty') ||
+    queryLower.includes('what is sensex')
+  );
+  
+  if (isCommonQuery && !previousMessages.length) {
+    const cacheKey = `common_query_${queryLower}`;
+    const cachedResponse = chatbotCache.get(cacheKey);
+    
+    if (cachedResponse) {
+      console.log(`Cache hit for common query: ${queryLower}`);
+      return cachedResponse;
+    }
+  }
   try {
     // Check if the query is a short greeting or simple message
     const shortQueryPattern = /^\s*(hi|hello|hey|namaste|hola|greetings|howdy|sup|yo|hii|hiii|hiiii|helo|hellow|hru|wassup|whats up|what's up)\s*$/i;
@@ -836,6 +1054,9 @@ Provide a DETAILED COMPARISON between direct stock investments and mutual funds 
     // Remove any unnecessary formatting that might make the response look automated
     responseText = responseText.replace(/\n\n+/g, '\n\n')  // Replace multiple newlines with double newlines
                              .trim();                      // Remove trailing whitespace
+    
+    // Convert markdown tables to HTML tables
+    responseText = convertMarkdownTablesToHTML(responseText);
     
     // Add natural pauses and flow indicators for more human-like responses
     if (responseText.length > 200 && !responseText.includes('...')) {

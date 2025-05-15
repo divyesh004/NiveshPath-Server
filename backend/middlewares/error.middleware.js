@@ -25,19 +25,24 @@ exports.errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Send error response
-  res.status(status).json({
-    status: 'error',
-    message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+  // Send error response only if headers haven't been sent yet
+  if (!res.headersSent) {
+    res.status(status).json({
+      status: 'error',
+      message,
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    });
+  }
 };
 
 /**
  * Not found middleware
  */
 exports.notFound = (req, res, next) => {
-  const error = new Error(`Not Found - ${req.originalUrl}`);
-  error.statusCode = 404;
-  next(error);
+  // Only proceed if headers haven't been sent yet
+  if (!res.headersSent) {
+    const error = new Error(`Not Found - ${req.originalUrl}`);
+    error.statusCode = 404;
+    next(error);
+  }
 };
