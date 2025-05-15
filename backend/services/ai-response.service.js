@@ -16,77 +16,77 @@ async function generateAIResponse(query, context) {
     const { profileStatus, userProfile, isInvestmentRelated, isSmartInvestmentQuery, isGoalBasedPlanningQuery, isPeerComparisonQuery, isFinancialHealthQuery } = context;
     
     // Prepare system prompt based on available profile data
-    let systemPrompt = `तुम NiveshPath के AI वित्तीय सलाहकार हो, जो भारतीय उपयोगकर्ताओं को वित्तीय शिक्षा और सलाह प्रदान करते हो।`;
+    let systemPrompt = `You are NiveshPath's AI financial advisor, providing financial education and advice to Indian users.`;
     
     // Add available profile information to the prompt
     if (userProfile) {
-      systemPrompt += `\n\nउपयोगकर्ता की प्रोफाइल जानकारी:`;
-      if (userProfile.name) systemPrompt += `\n- नाम: ${userProfile.name}`;
-      if (userProfile.age) systemPrompt += `\n- उम्र: ${userProfile.age} वर्ष`;
-      if (userProfile.income) systemPrompt += `\n- आय: ₹${userProfile.income} प्रति वर्ष`;
-      if (userProfile.riskAppetite) systemPrompt += `\n- जोखिम क्षमता: ${userProfile.riskAppetite}`;
+      systemPrompt += `\n\nUser Profile Information:`;
+      if (userProfile.name) systemPrompt += `\n- Name: ${userProfile.name}`;
+      if (userProfile.age) systemPrompt += `\n- Age: ${userProfile.age} years`;
+      if (userProfile.income) systemPrompt += `\n- Income: ₹${userProfile.income} per year`;
+      if (userProfile.riskAppetite) systemPrompt += `\n- Risk Appetite: ${userProfile.riskAppetite}`;
       if (userProfile.goals && userProfile.goals.length > 0) {
-        systemPrompt += `\n- वित्तीय लक्ष्य: ${userProfile.goals.join(', ')}`;
+        systemPrompt += `\n- Financial Goals: ${userProfile.goals.join(', ')}`;
       }
       
       // Add onboarding data if available
       if (userProfile.onboardingData) {
         if (userProfile.onboardingData.demographic) {
           const demo = userProfile.onboardingData.demographic;
-          if (demo.location) systemPrompt += `\n- स्थान: ${demo.location}`;
-          if (demo.occupation) systemPrompt += `\n- व्यवसाय: ${demo.occupation}`;
+          if (demo.location) systemPrompt += `\n- Location: ${demo.location}`;
+          if (demo.occupation) systemPrompt += `\n- Occupation: ${demo.occupation}`;
         }
       }
     }
     
     // Add instructions based on profile completeness
-    systemPrompt += `\n\nप्रोफाइल पूर्णता: ${profileStatus.completionPercentage}%`;
+    systemPrompt += `\n\nProfile Completion: ${profileStatus.completionPercentage}%`;
     
     if (profileStatus.completionPercentage < 50) {
-      systemPrompt += `\n\nउपयोगकर्ता की प्रोफाइल अधूरी है। उत्तर देते समय, उपयोगकर्ता से अधिक जानकारी मांगें और प्रोफाइल को पूरा करने के लिए प्रोत्साहित करें। हालांकि, उनके प्रश्न का उत्तर अवश्य दें।`;
+      systemPrompt += `\n\nThe user's profile is incomplete. When answering, ask the user for more information and encourage them to complete their profile. However, make sure to answer their question.`;
     } else if (profileStatus.completionPercentage < 80) {
-      systemPrompt += `\n\nउपयोगकर्ता की प्रोफाइल आंशिक रूप से पूरी है। उत्तर देते समय, उपयोगकर्ता से अधिक विशिष्ट जानकारी मांगें जो उनके प्रश्न से संबंधित हो।`;
+      systemPrompt += `\n\nThe user's profile is partially complete. When answering, ask the user for more specific information related to their question.`;
     }
     
     // Add instructions for interactive conversation
-    systemPrompt += `\n\nमहत्वपूर्ण निर्देश:
-1. उपयोगकर्ता के प्रश्न का सीधा और स्पष्ट उत्तर दें।
-2. उपयोगकर्ता से संबंधित प्रश्न पूछें जो उनके मूल प्रश्न से जुड़े हों।
-3. भारतीय वित्तीय बाजार और नियमों के संदर्भ में उत्तर दें।
-4. जटिल वित्तीय अवधारणाओं को सरल भाषा में समझाएं।
-5. उपयोगकर्ता के साथ संवाद करें जैसे आप एक वास्तविक वित्तीय सलाहकार हों।`;
+    systemPrompt += `\n\nImportant Instructions:
+1. Provide direct and clear answers to the user's questions.
+2. Ask relevant follow-up questions related to their original question.
+3. Answer in the context of Indian financial markets and regulations.
+4. Explain complex financial concepts in simple language.
+5. Interact with the user as if you are a real financial advisor.`;
     
     // Add specialized instructions based on query type
     if (isSmartInvestmentQuery) {
-      systemPrompt += `\n\nस्मार्ट निवेश सलाहकार के रूप में:
-1. उपयोगकर्ता के प्रोफाइल, व्यवहार, लक्ष्यों और समान क्षेत्र में रहने वाले अन्य लोगों के रुझानों के आधार पर सर्वोत्तम निवेश विकल्प सुझाएं।
-2. SIP, म्यूचुअल फंड, स्टॉक, सोना, रियल एस्टेट, क्रिप्टो आदि विभिन्न निवेश विकल्पों के बारे में जानकारी दें।
-3. हर सिफारिश के साथ "यह सिफारिश क्यों?" समझाएं - अपनी सलाह के पीछे के कारण बताएं।
-4. उपयोगकर्ता के जोखिम प्रोफाइल और वित्तीय लक्ष्यों के अनुसार व्यक्तिगत सिफारिशें दें।`;
+      systemPrompt += `\n\nAs a Smart Investment Advisor:
+1. Suggest the best investment options based on the user's profile, behavior, goals, and trends of people living in similar areas.
+2. Provide information about various investment options such as SIP, mutual funds, stocks, gold, real estate, crypto, etc.
+3. Explain "Why this recommendation?" with every suggestion - explain the reasoning behind your advice.
+4. Provide personalized recommendations according to the user's risk profile and financial goals.`;
     }
     
     if (isGoalBasedPlanningQuery) {
-      systemPrompt += `\n\nलक्ष्य-आधारित योजना के लिए:
-1. उपयोगकर्ता के वित्तीय लक्ष्यों (जैसे घर खरीदना, बच्चों की शिक्षा, सेवानिवृत्ति) के बारे में पूछें और उन्हें स्पष्ट रूप से परिभाषित करने में मदद करें।
-2. लक्ष्य प्राप्ति का प्रतिशत और आवश्यक मासिक योगदान के बारे में जानकारी दें।
-3. लक्ष्य से विचलन या बेहतर विकल्पों के बारे में सलाह दें।
-4. समय सीमा और आवश्यक धनराशि के आधार पर लक्ष्य प्राप्ति के लिए योजना बनाने में मदद करें।`;
+      systemPrompt += `\n\nFor Goal-Based Planning:
+1. Ask about the user's financial goals (such as buying a house, children's education, retirement) and help them define these clearly.
+2. Provide information about goal achievement percentage and required monthly contributions.
+3. Advise on goal deviations or better alternatives.
+4. Help create a plan for goal achievement based on timeline and required funds.`;
     }
     
     if (isPeerComparisonQuery) {
-      systemPrompt += `\n\nपीयर कंपैरिज़न एनालिटिक्स के लिए:
-1. "आपके शहर, पेशे, आय सीमा में अन्य लोग कैसे निवेश कर रहे हैं" इस बारे में जानकारी दें।
-2. गुमनाम डेटा के आधार पर हीटमैप और अंतर्दृष्टि प्रदान करें।
-3. उपयोगकर्ता के समान प्रोफाइल वाले लोगों के निवेश पैटर्न के बारे में बताएं।
-4. उपयोगकर्ता के निवेश पैटर्न की तुलना उनके समकक्षों से करें और सुधार के सुझाव दें।`;
+      systemPrompt += `\n\nFor Peer Comparison Analytics:
+1. Provide information about "how other people in your city, profession, income range are investing".
+2. Provide heatmaps and insights based on anonymized data.
+3. Inform about investment patterns of people with similar profiles to the user.
+4. Compare the user's investment pattern with their peers and suggest improvements.`;
     }
     
     if (isFinancialHealthQuery) {
-      systemPrompt += `\n\nवित्तीय स्वास्थ्य स्कोर के लिए:
-1. खर्च, बचत, आय, क्रेडिट और निवेश के आधार पर AI-जनित स्कोर के बारे में बताएं।
-2. मासिक अपडेट के साथ सुधार के टिप्स प्रदान करें।
-3. उपयोगकर्ता के वित्तीय स्वास्थ्य को बेहतर बनाने के लिए व्यावहारिक सुझाव दें।
-4. वित्तीय स्वास्थ्य के विभिन्न पहलुओं (बचत, निवेश, ऋण प्रबंधन, आदि) पर प्रतिक्रिया दें।`;
+      systemPrompt += `\n\nFor Financial Health Score:
+1. Inform about AI-generated score based on expenses, savings, income, credit, and investments.
+2. Provide improvement tips with monthly updates.
+3. Give practical suggestions to improve the user's financial health.
+4. Provide feedback on various aspects of financial health (savings, investments, debt management, etc.).`;
     }
     
     // Here you would normally call an external AI API like OpenAI or a local model
@@ -131,23 +131,23 @@ function simulateAIResponse(query, context, systemPrompt) {
   const lowerQuery = query.toLowerCase();
   
   // First check if the question is related to personal finance
-  const isPersonalFinanceQuery = lowerQuery.includes('personal finance') || lowerQuery.includes('वित्तीय सलाह') || 
-    lowerQuery.includes('my money') || lowerQuery.includes('मेरा पैसा') || 
-    lowerQuery.includes('my income') || lowerQuery.includes('मेरी आय') || 
-    lowerQuery.includes('my savings') || lowerQuery.includes('मेरी बचत') || 
-    lowerQuery.includes('my investment') || lowerQuery.includes('मेरा निवेश') || 
-    lowerQuery.includes('my expenses') || lowerQuery.includes('मेरे खर्च') || 
-    lowerQuery.includes('financial advice') || lowerQuery.includes('वित्तीय सलाह') ||
-    lowerQuery.includes('money management') || lowerQuery.includes('पैसों का प्रबंधन') || 
-    lowerQuery.includes('budget') || lowerQuery.includes('बजट') || 
-    lowerQuery.includes('expenses') || lowerQuery.includes('खर्च') ||
-    lowerQuery.includes('debt') || lowerQuery.includes('कर्ज') || 
-    lowerQuery.includes('loan') || lowerQuery.includes('ऋण') ||
-    lowerQuery.includes('savings') || lowerQuery.includes('बचत') || 
-    lowerQuery.includes('investment') || lowerQuery.includes('निवेश') || 
-    lowerQuery.includes('financial planning') || lowerQuery.includes('वित्तीय योजना') ||
-    lowerQuery.includes('financial goals') || lowerQuery.includes('वित्तीय लक्ष्य') || 
-    lowerQuery.includes('saving money') || lowerQuery.includes('पैसे बचाना') || isInvestmentRelated;
+  const isPersonalFinanceQuery = lowerQuery.includes('personal finance') || lowerQuery.includes('financial advice') || 
+    lowerQuery.includes('my money') || lowerQuery.includes('money') || 
+    lowerQuery.includes('my income') || lowerQuery.includes('income') || 
+    lowerQuery.includes('my savings') || lowerQuery.includes('savings') || 
+    lowerQuery.includes('my investment') || lowerQuery.includes('investment') || 
+    lowerQuery.includes('my expenses') || lowerQuery.includes('expenses') || 
+    lowerQuery.includes('financial advice') || lowerQuery.includes('advice') ||
+    lowerQuery.includes('money management') || lowerQuery.includes('management') || 
+    lowerQuery.includes('budget') || lowerQuery.includes('budgeting') || 
+    lowerQuery.includes('expenses') || lowerQuery.includes('spending') ||
+    lowerQuery.includes('debt') || lowerQuery.includes('loans') || 
+    lowerQuery.includes('loan') || lowerQuery.includes('credit') ||
+    lowerQuery.includes('savings') || lowerQuery.includes('save') || 
+    lowerQuery.includes('investment') || lowerQuery.includes('invest') || 
+    lowerQuery.includes('financial planning') || lowerQuery.includes('planning') ||
+    lowerQuery.includes('financial goals') || lowerQuery.includes('goals') || 
+    lowerQuery.includes('saving money') || lowerQuery.includes('save money') || isInvestmentRelated;
     
   // Answer personal finance questions based on profile completeness
   if (isPersonalFinanceQuery) {
