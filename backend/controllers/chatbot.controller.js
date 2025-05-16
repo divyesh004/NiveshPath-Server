@@ -298,6 +298,52 @@ exports.submitQuery = async (req, res, next) => {
       }
     }
     
+    // Check if we have extracted profile information to update the user's profile
+    if (response.extractedProfileInfo) {
+      try {
+        // Get the current profile
+        let profile = userProfile || await Profile.findOne({ userId: req.user.userId });
+        
+        // Create a new profile if it doesn't exist
+        if (!profile) {
+          profile = new Profile({
+            userId: req.user.userId
+          });
+        }
+        
+        // Update profile with extracted information
+        const { name, age, income, goals, location, occupation } = response.extractedProfileInfo;
+        
+        if (name) profile.name = name;
+        if (age) profile.age = age;
+        if (income) profile.income = income;
+        if (goals && goals.length > 0) profile.goals = goals;
+        
+        // Update demographic information
+        if (location || occupation) {
+          profile.onboardingData = profile.onboardingData || {};
+          profile.onboardingData.demographic = profile.onboardingData.demographic || {};
+          
+          if (location) profile.onboardingData.demographic.location = location;
+          if (occupation) profile.onboardingData.demographic.occupation = occupation;
+        }
+        
+        // Save the updated profile
+        await profile.save();
+        
+        // Update the cache
+        userProfileCache.set(profileCacheKey, profile);
+        
+        // Update profile status after changes
+        profileStatus = checkProfileCompleteness(profile);
+        context.profileStatus = profileStatus;
+        
+        console.log(`Updated user profile with extracted information: ${JSON.stringify(response.extractedProfileInfo)}`);
+      } catch (error) {
+        console.error('Error updating profile with extracted information:', error);
+      }
+    }
+    
     // Save the chat session with updated context
     const chatSession = new ChatbotSession({
       userId: req.user.userId,
@@ -706,6 +752,20 @@ async function callMistralAPI(query, context, previousMessages = []) {
   
   // Track session questions to avoid repetition
   const sessionAskedQuestions = context.sessionAskedQuestions || [];
+  
+  // Check if the query is a response to a previously asked question
+  const isResponseToQuestion = previousMessages.length > 0 && 
+    previousMessages[previousMessages.length - 1].role === 'assistant' && 
+    Object.values(nextQuestionMap).some(question => 
+      previousMessages[previousMessages.length - 1].content.includes(question));
+  
+  // Identify which question was asked if this is a response
+  let askedQuestion = null;
+  if (isResponseToQuestion) {
+    const lastAssistantMessage = previousMessages[previousMessages.length - 1].content;
+    askedQuestion = Object.entries(nextQuestionMap).find(([field, question]) => 
+      lastAssistantMessage.includes(question));
+  }
 
   try {
     // Check if the query is a short greeting or simple message
@@ -729,7 +789,19 @@ async function callMistralAPI(query, context, previousMessages = []) {
     }
     
     // Create a personalized system prompt based on user profile with proactive behavior
-    let systemPrompt = 'You are an AI Personal Finance Advisor. If the user hasn\'t provided complete profile information (name, age, income, goals), start asking relevant questions step-by-step to build their profile. Always ask a follow-up question unless the task is complete. You are an expert in Indian financial markets, investment strategies, tax planning, and personal finance management. Your goal is to provide personalized, actionable financial advice based on the user\'s profile and queries. FORMAT YOUR RESPONSES APPROPRIATELY: Present tabular data in markdown tables, use bullet points for lists, and use paragraphs for explanations. Always structure your response for maximum readability and clarity. REMEMBER USER HISTORY: Refer to previous conversations when relevant to provide consistent advice and build on past interactions. ';
+    let systemPrompt = 'You are an AI Personal Finance Advisor. If the user hasn\'t provided complete profile information (name, age, income, goals), start asking relevant questions step-by-step to build their profile. ALWAYS ASK ONE FOLLOW-UP QUESTION at the end of your response unless the task is complete. You are an expert in Indian financial markets, investment strategies, tax planning, and personal finance management. Your goal is to provide personalized, actionable financial advice based on the user\'s profile and queries. FORMAT YOUR RESPONSES APPROPRIATELY: Present tabular data in markdown tables, use bullet points for lists, and use paragraphs for explanations. Always structure your response for maximum readability and clarity. REMEMBER USER HISTORY: Refer to previous conversations when relevant to provide consistent advice and build on past interactions. IMPORTANT FOR PROFILE BUILDING: When the user responds to your profile questions, extract the information and use it in your future responses. For example, if you asked about their age and they respond with "I am 30 years old", acknowledge this information and use it to provide age-appropriate advice in your response. ';
+    
+    // Add instructions for handling responses to profile questions
+    if (isResponseToQuestion && askedQuestion) {
+      const [field, question] = askedQuestion;
+      systemPrompt += `The user is responding to your question about their ${field}: "${question}". Extract the relevant information from their response and acknowledge it. Then provide advice that incorporates this new information. `;
+      
+      // Add the field to the list of asked questions to avoid repetition
+      if (!sessionAskedQuestions.includes(field)) {
+        sessionAskedQuestions.push(field);
+        context.sessionAskedQuestions = sessionAskedQuestions;
+      }
+    }
     
     // Add profile completeness information to the prompt
     if (context.profileStatus && !context.profileStatus.complete) {
@@ -1197,9 +1269,103 @@ Provide a DETAILED COMPARISON between direct stock investments and mutual funds 
       }
     }
     
+    // If this was a response to a profile question, extract and update profile information
+    if (isResponseToQuestion && askedQuestion) {
+      const [field, question] = askedQuestion;
+      const userResponse = query.trim();
+      
+      // Extract profile information based on the field
+      let extractedInfo = null;
+      
+      switch(field) {
+        case 'name':
+          // Extract name from response
+          extractedInfo = userResponse.match(/(?:my name is|i am|i'm|call me)\s+([\w\s]+)/i);
+          if (extractedInfo && extractedInfo[1]) {
+            context.extractedProfileInfo = context.extractedProfileInfo || {};
+            context.extractedProfileInfo.name = extractedInfo[1].trim();
+          }
+          break;
+          
+        case 'age':
+          // Extract age from response
+          extractedInfo = userResponse.match(/(?:i am|i'm)\s+(\d+)(?:\s+years?\s+old)?/i) || 
+                         userResponse.match(/(\d+)(?:\s+years?(?:\s+old)?)/i);
+          if (extractedInfo && extractedInfo[1]) {
+            context.extractedProfileInfo = context.extractedProfileInfo || {};
+            context.extractedProfileInfo.age = parseInt(extractedInfo[1]);
+          }
+          break;
+          
+        case 'income':
+          // Extract income from response
+          extractedInfo = userResponse.match(/(?:my income is|i earn|i make)\s+(?:rs\.?|₹)?\s*(\d[\d,]*)/i) ||
+                         userResponse.match(/(?:rs\.?|₹)?\s*(\d[\d,]*)/i);
+          if (extractedInfo && extractedInfo[1]) {
+            context.extractedProfileInfo = context.extractedProfileInfo || {};
+            context.extractedProfileInfo.income = parseInt(extractedInfo[1].replace(/,/g, ''));
+          }
+          break;
+          
+        case 'financialGoals':
+          // Extract financial goals from response
+          context.extractedProfileInfo = context.extractedProfileInfo || {};
+          context.extractedProfileInfo.goals = userResponse.split(/[,;]/).map(goal => goal.trim());
+          break;
+          
+        case 'location':
+          // Extract location from response
+          extractedInfo = userResponse.match(/(?:i live in|i am from|i'm from|i reside in)\s+([\w\s]+)/i) ||
+                         userResponse.match(/([\w\s]+)/i);
+          if (extractedInfo && extractedInfo[1]) {
+            context.extractedProfileInfo = context.extractedProfileInfo || {};
+            context.extractedProfileInfo.location = extractedInfo[1].trim();
+          }
+          break;
+          
+        case 'occupation':
+          // Extract occupation from response
+          extractedInfo = userResponse.match(/(?:i work as|i am|i'm|my job is)\s+(?:an?|the)?\s+([\w\s]+)/i) ||
+                         userResponse.match(/([\w\s]+)/i);
+          if (extractedInfo && extractedInfo[1]) {
+            context.extractedProfileInfo = context.extractedProfileInfo || {};
+            context.extractedProfileInfo.occupation = extractedInfo[1].trim();
+          }
+          break;
+      }
+      
+      // Log extracted information for debugging
+      if (context.extractedProfileInfo) {
+        console.log('Extracted profile information:', context.extractedProfileInfo);
+      }
+    }
+    
+    // Ensure a follow-up question is included if profile is incomplete
+    if (context.profileStatus && !context.profileStatus.complete && 
+        !context.profileStatus.missingFields.every(field => sessionAskedQuestions.includes(field))) {
+      
+      // If the response doesn't already include a question from nextQuestionMap
+      if (!Object.values(nextQuestionMap).some(question => responseText.includes(question))) {
+        const followUp = askNextQuestion(context.profileStatus.missingFields, sessionAskedQuestions);
+        
+        if (followUp) {
+          // Add the question to the list of asked questions
+          const nextField = context.profileStatus.missingFields.find(field => !sessionAskedQuestions.includes(field));
+          if (nextField) {
+            sessionAskedQuestions.push(nextField);
+            context.sessionAskedQuestions = sessionAskedQuestions;
+          }
+          
+          // Append the follow-up question to the AI's response
+          responseText += `\n\n${followUp}`;
+        }
+      }
+    }
+    
     return {
       text: responseText,
-      raw: response.data
+      raw: response.data,
+      extractedProfileInfo: context.extractedProfileInfo
     };
   } catch (error) {
     // Enhanced error logging with more details
