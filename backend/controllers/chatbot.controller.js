@@ -12,6 +12,34 @@ const util = require('util');
 // const redisGetAsync = util.promisify(redisClient.get).bind(redisClient);
 // const redisSetAsync = util.promisify(redisClient.set).bind(redisClient);
 
+// Map missing profile fields to predefined natural language questions
+const nextQuestionMap = {
+  name: "Aapka naam kya hai?",
+  age: "Aapki umr kya hai?",
+  income: "Aapki monthly income kitni hai?",
+  financialGoals: "Aapke financial goals kya hain?",
+  location: "Aap kaha rehte ho?",
+  occupation: "Aap kya kaam karte ho?",
+  demographicInfo: "Aapke baare mein thodi aur jankari de sakte hain?",
+  psychologicalProfile: "Aap investment decisions kaise lete hain?"
+};
+
+// Utility function to ask the next relevant question based on missing fields
+const askNextQuestion = (missingFields, askedQuestions = []) => {
+  // Filter out fields that have already been asked
+  const unaskedFields = missingFields.filter(field => !askedQuestions.includes(field));
+  
+  // If all fields have been asked, return null
+  if (unaskedFields.length === 0) return null;
+  
+  // Get the first unasked field
+  const nextField = unaskedFields[0];
+  
+  // Return the corresponding question
+  return nextQuestionMap[nextField] || `Kya aap apne profile mein ${nextField} add kar sakte hain?`;
+};
+
+
 // Helper function to check profile completeness
 const checkProfileCompleteness = (profile) => {
   if (!profile) return { complete: false, missingFields: ['profile'] };
@@ -243,14 +271,38 @@ exports.submitQuery = async (req, res, next) => {
       }
     }
     
+    // Track which questions have been asked in this session
+    if (!context.sessionAskedQuestions) {
+      context.sessionAskedQuestions = [];
+    }
+    
     // Call Mistral AI API with conversation history
     const response = await callMistralAPI(query, context, previousMessages);
     
-    // Save the chat session
+    // Get the AI response text
+    let chatbotReply = response.text;
+    
+    // Check if there are missing profile fields and append a follow-up question
+    if (!profileStatus.complete && profileStatus.missingFields.length > 0) {
+      const followUp = askNextQuestion(profileStatus.missingFields, context.sessionAskedQuestions);
+      
+      if (followUp) {
+        // Add the question to the list of asked questions
+        const nextField = profileStatus.missingFields.find(field => !context.sessionAskedQuestions.includes(field));
+        if (nextField) {
+          context.sessionAskedQuestions.push(nextField);
+        }
+        
+        // Append the follow-up question to the AI's response
+        chatbotReply += `\n\n${followUp}`;
+      }
+    }
+    
+    // Save the chat session with updated context
     const chatSession = new ChatbotSession({
       userId: req.user.userId,
       query,
-      response: response.text,
+      response: chatbotReply,
       context,
       conversationId: conversationId || new mongoose.Types.ObjectId() // Create new conversation ID if not provided
     });
@@ -260,9 +312,10 @@ exports.submitQuery = async (req, res, next) => {
     // Check if headers have already been sent before sending response
     if (!res.headersSent) {
       res.status(200).json({
-        response: response.text,
+        response: chatbotReply,
         sessionId: chatSession._id,
-        conversationId: chatSession.conversationId
+        conversationId: chatSession.conversationId,
+        profileStatus
       });
     }
   } catch (error) {
@@ -650,6 +703,10 @@ async function callMistralAPI(query, context, previousMessages = []) {
       return cachedResponse;
     }
   }
+  
+  // Track session questions to avoid repetition
+  const sessionAskedQuestions = context.sessionAskedQuestions || [];
+
   try {
     // Check if the query is a short greeting or simple message
     const shortQueryPattern = /^\s*(hi|hello|hey|namaste|hola|greetings|howdy|sup|yo|hii|hiii|hiiii|helo|hellow|hru|wassup|whats up|what's up)\s*$/i;
@@ -671,8 +728,8 @@ async function callMistralAPI(query, context, previousMessages = []) {
       };
     }
     
-    // Create a personalized system prompt based on user profile
-    let systemPrompt = 'You are a financial advisor assistant for NiveshPath, a personal finance education platform for Indian users. You are an expert in Indian financial markets, investment strategies, tax planning, and personal finance management. Your goal is to provide personalized, actionable financial advice based on the user\'s profile and queries. FORMAT YOUR RESPONSES APPROPRIATELY: Present tabular data in markdown tables, use bullet points for lists, and use paragraphs for explanations. Always structure your response for maximum readability and clarity. REMEMBER USER HISTORY: Refer to previous conversations when relevant to provide consistent advice and build on past interactions. ';
+    // Create a personalized system prompt based on user profile with proactive behavior
+    let systemPrompt = 'You are an AI Personal Finance Advisor. If the user hasn\'t provided complete profile information (name, age, income, goals), start asking relevant questions step-by-step to build their profile. Always ask a follow-up question unless the task is complete. You are an expert in Indian financial markets, investment strategies, tax planning, and personal finance management. Your goal is to provide personalized, actionable financial advice based on the user\'s profile and queries. FORMAT YOUR RESPONSES APPROPRIATELY: Present tabular data in markdown tables, use bullet points for lists, and use paragraphs for explanations. Always structure your response for maximum readability and clarity. REMEMBER USER HISTORY: Refer to previous conversations when relevant to provide consistent advice and build on past interactions. ';
     
     // Add profile completeness information to the prompt
     if (context.profileStatus && !context.profileStatus.complete) {
