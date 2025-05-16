@@ -753,6 +753,13 @@ async function callMistralAPI(query, context, previousMessages = []) {
   // Track session questions to avoid repetition
   const sessionAskedQuestions = context.sessionAskedQuestions || [];
   
+  // Track conversation state to ensure one question is fully addressed before moving to another
+  context.conversationState = context.conversationState || {
+    currentQuestion: null,
+    questionStatus: 'new', // 'new', 'in_progress', 'completed'
+    lastResponseTimestamp: null
+  };
+  
   // Check if the query is a response to a previously asked question
   const isResponseToQuestion = previousMessages.length > 0 && 
     previousMessages[previousMessages.length - 1].role === 'assistant' && 
@@ -765,6 +772,13 @@ async function callMistralAPI(query, context, previousMessages = []) {
     const lastAssistantMessage = previousMessages[previousMessages.length - 1].content;
     askedQuestion = Object.entries(nextQuestionMap).find(([field, question]) => 
       lastAssistantMessage.includes(question));
+    
+    // Update conversation state if this is a response to a profile question
+    if (askedQuestion) {
+      const [field, question] = askedQuestion;
+      context.conversationState.currentQuestion = field;
+      context.conversationState.questionStatus = 'in_progress';
+    }
   }
 
   try {
@@ -1088,8 +1102,15 @@ async function callMistralAPI(query, context, previousMessages = []) {
     // Add the current query with profile completion context if needed
     let userQuery = query;
     
+    // Check if we're in the middle of addressing a specific question
+    if (context.conversationState && context.conversationState.currentQuestion && 
+        context.conversationState.questionStatus === 'in_progress') {
+      // Add context that we're continuing with the current question
+      const currentField = context.conversationState.currentQuestion;
+      userQuery = `${query} (Note: This is a follow-up to the previous question about ${currentField}. IMPORTANT: Please fully address this question before moving to any new topics. Focus on providing a complete answer to this specific question. Only after fully resolving this question should you consider introducing a new topic or question.)`;
+    }
     // If query is about profile completion, add specific instructions to the AI
-    if (query.toLowerCase().includes('profile') && context.profileStatus && !context.profileStatus.complete) {
+    else if (query.toLowerCase().includes('profile') && context.profileStatus && !context.profileStatus.complete) {
       userQuery = `${query} (Note: User is asking about profile completion. Their profile is ${context.profileStatus.completionPercentage}% complete, missing: ${context.profileStatus.missingFields.join(', ')}. Please guide them on how to complete these specific fields in a conversational, helpful manner. Use examples and analogies to explain why completing these fields is important. FORMAT RESPONSE: Present missing fields in a table with field name and importance, use bullet points for steps to complete profile, and use paragraphs for general explanations.)`;
     }
     
@@ -1214,6 +1235,14 @@ Provide a DETAILED COMPARISON between direct stock investments and mutual funds 
       content: userQuery
     });
     
+    // Add specific system instruction to focus on one question at a time
+    if (context.conversationState && context.conversationState.currentQuestion) {
+      messages.push({
+        role: 'system',
+        content: 'IMPORTANT INSTRUCTION: Focus on fully addressing the current question before introducing any new topics. Complete the current topic of conversation before moving to a new question. This is critical for maintaining a natural conversation flow. When you have fully addressed the current question, indicate this by including the phrase "[QUESTION COMPLETED]" at the very end of your response, which will be removed before showing to the user.'
+      });
+    }
+    
     // Check if the query is very short (less than 5 words) but not a greeting
     const wordCount = query.trim().split(/\s+/).length;
     if (wordCount < 5 && !shortQueryPattern.test(query.trim())) {
@@ -1250,6 +1279,19 @@ Provide a DETAILED COMPARISON between direct stock investments and mutual funds 
     
     // Process the response to enhance natural flow and readability
     let responseText = response.data.choices[0].message.content;
+    
+    // Check if the response indicates the question has been completed
+    if (responseText.includes('[QUESTION COMPLETED]')) {
+      // Update conversation state to mark the current question as completed
+      if (context.conversationState) {
+        context.conversationState.questionStatus = 'completed';
+        context.conversationState.currentQuestion = null;
+        console.log('Question marked as completed, ready for next question');
+      }
+      
+      // Remove the completion marker from the response
+      responseText = responseText.replace('[QUESTION COMPLETED]', '').trim();
+    }
     
     // Remove any unnecessary formatting that might make the response look automated
     responseText = responseText.replace(/\n\n+/g, '\n\n')  // Replace multiple newlines with double newlines
