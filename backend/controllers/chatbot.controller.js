@@ -274,10 +274,25 @@ exports.submitQuery = async (req, res, next) => {
 // Get user's chat history - with caching and optimized queries
 exports.getChatHistory = async (req, res, next) => {
   try {
-    const { limit = 10, skip = 0 } = req.query;
+    const { limit = 10, skip = 0, userId: requestedUserId } = req.query;
     const parsedLimit = parseInt(limit);
     const parsedSkip = parseInt(skip);
-    const userId = req.user.userId;
+    
+    // Use the authenticated user's ID by default
+    // If a specific userId is requested and the user is an admin, use that instead
+    let userId = req.user.userId;
+    
+    // If a specific user ID is requested, verify that the current user has permission
+    // (either it's their own ID or they're an admin)
+    if (requestedUserId && requestedUserId !== userId) {
+      // Check if the current user is an admin or has appropriate permissions
+      // This is a simplified check - you may need to implement proper role-based access control
+      if (req.user.role === 'admin') {
+        userId = requestedUserId;
+      } else {
+        return res.status(403).json({ message: 'You do not have permission to view this user\'s chat history' });
+      }
+    }
     
     // Create cache key based on user and pagination params
     const cacheKey = `chat_history_${userId}_${parsedLimit}_${parsedSkip}`;
@@ -340,6 +355,62 @@ exports.getChatHistory = async (req, res, next) => {
     if (!res.headersSent) {
       res.status(200).json(result);
     }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get chat history for a specific user (requires admin privileges)
+exports.getUserChatHistory = async (req, res, next) => {
+  try {
+    // Check if the current user is an admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'You do not have permission to access this resource' });
+    }
+    
+    const { userId } = req.params;
+    const { limit = 10, skip = 0 } = req.query;
+    const parsedLimit = parseInt(limit);
+    const parsedSkip = parseInt(skip);
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+    
+    // Create cache key based on user and pagination params
+    const cacheKey = `chat_history_${userId}_${parsedLimit}_${parsedSkip}`;
+    
+    // Try to get from cache first
+    const cachedResult = chatbotCache.get(cacheKey);
+    if (cachedResult) {
+      return res.status(200).json(cachedResult);
+    }
+    
+    // Cache miss - fetch from database
+    const chatHistory = await ChatbotSession.find({ userId })
+      .sort({ timestamp: -1 })
+      .skip(parsedSkip)
+      .limit(parsedLimit)
+      .lean();
+    
+    // Get total count for pagination
+    const total = await ChatbotSession.countDocuments({ userId });
+    const hasMore = total > (parsedSkip + parsedLimit);
+    
+    const result = {
+      chatHistory,
+      pagination: {
+        total,
+        limit: parsedLimit,
+        skip: parsedSkip,
+        hasMore
+      }
+    };
+    
+    // Cache the result
+    chatbotCache.set(cacheKey, result, 300); // 5 minutes TTL
+    
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

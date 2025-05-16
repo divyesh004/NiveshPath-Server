@@ -36,8 +36,11 @@ router.post(
   chatbotController.submitQuery
 );
 
-// Get chat history
+// Get chat history for the current user
 router.get('/history', chatbotController.getChatHistory);
+
+// Get chat history for a specific user (admin only)
+router.get('/user/:userId/history', chatbotController.getUserChatHistory);
 
 // Get a specific chat session
 router.get('/session/:sessionId', chatbotMiddleware.validateSessionOwnership, chatbotController.getChatSession);
