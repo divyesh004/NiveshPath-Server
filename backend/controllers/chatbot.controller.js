@@ -590,7 +590,7 @@ function convertMarkdownTablesToHTML(text) {
       // Add header row
       htmlTable += '<thead><tr>';
       headers.forEach(header => {
-        htmlTable += `<th style="background-color:rgb(104, 104, 104); text-align: left; padding: 10px; border: 1px solid #ddd;">${sanitizeHTML(header)}</th>`;
+        htmlTable += `<th style="background-color:#3498db; color: white; text-align: left; padding: 10px; border: 1px solid #ddd;">${sanitizeHTML(header)}</th>`;
       });
       htmlTable += '</tr></thead>';
       
