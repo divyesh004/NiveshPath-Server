@@ -457,18 +457,19 @@ exports.getChatHistory = async (req, res, next) => {
   }
 };
 
-// Get chat history for a specific user (requires admin privileges)
+// Get chat history for a specific user (allows users to view their own history, admins can view any user's history)
 exports.getUserChatHistory = async (req, res, next) => {
   try {
-    // Check if the current user is an admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'You do not have permission to access this resource' });
-    }
-    
+    // Get the requested user ID from params
     const { userId } = req.params;
     const { limit = 10, skip = 0 } = req.query;
     const parsedLimit = parseInt(limit);
     const parsedSkip = parseInt(skip);
+    
+    // Check if the current user is requesting their own history or is an admin
+    if (req.user.userId !== userId && req.user.role !== 'user') {
+      return res.status(403).json({ message: 'You do not have permission to access this resource' });
+    }
     
     if (!userId) {
       return res.status(400).json({ message: 'User ID is required' });
