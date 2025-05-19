@@ -8,8 +8,26 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticate);
 
+// Check onboarding status
+router.get('/onboarding-status', userController.checkOnboardingStatus);
+
 // Get user profile
 router.get('/profile', userController.getProfile);
+
+// Submit onboarding information
+router.post(
+  '/onboarding',
+  [
+    body('demographic').optional(),
+    body('psychological').optional(),
+    body('ethnographic').optional(),
+    body('financialGoals').optional().isArray().withMessage('वित्तीय लक्ष्य एक सरणी होनी चाहिए'),
+    body('name').optional().notEmpty().withMessage('नाम खाली नहीं हो सकता'),
+    body('age').optional().isInt({ min: 18, max: 120 }).withMessage('आयु 18 और 120 के बीच होनी चाहिए'),
+    body('income').optional().isNumeric().withMessage('आय एक संख्या होनी चाहिए')
+  ],
+  userController.submitOnboarding
+);
 
 // Update user profile
 router.put(

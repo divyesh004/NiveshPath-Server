@@ -70,7 +70,7 @@ mongoose.connect(MONGODB_URI, {
   // These options improve MongoDB connection performance
   maxPoolSize: 10, // Maintain up to 10 socket connections
   minPoolSize: 5,  // Maintain at least 5 socket connections
-  serverSelectionTimeoutMS:6000, // Keep trying to send operations for 5 seconds
+  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
   socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
 })
   .then(() => console.log('Connected to MongoDB'))
