@@ -1,6 +1,5 @@
 const { validationResult } = require('express-validator');
 const Profile = require('../models/profile.model');
-const User = require('../models/user.model');
 
 // Get user profile
 exports.getProfile = async (req, res, next) => {
@@ -97,25 +96,6 @@ exports.updateProfile = async (req, res, next) => {
   }
 };
 
-// Check onboarding status
-exports.checkOnboardingStatus = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.userId);
-    if (!user) {
-      return res.status(404).json({ 
-        message: 'उपयोगकर्ता नहीं मिला',
-        isOnboardingCompleted: false
-      });
-    }
-    
-    res.status(200).json({
-      isOnboardingCompleted: user.isOnboardingCompleted
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 // Submit onboarding information
 exports.submitOnboarding = async (req, res, next) => {
   try {
@@ -205,15 +185,8 @@ exports.submitOnboarding = async (req, res, next) => {
     
     await profile.save();
     
-    // Update user's onboarding status
-    const user = await User.findById(req.user.userId);
-    if (user) {
-      user.isOnboardingCompleted = true;
-      await user.save();
-    }
-    
     res.status(200).json({
-      message: 'ऑनबोर्डिंग जानकारी सफलतापूर्वक सबमिट की गई',
+      message: 'Onboarding information submitted successfully',
       profile
     });
   } catch (error) {

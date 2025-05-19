@@ -20,14 +20,6 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
-  isEmailVerified: {
-    type: Boolean,
-    default: false
-  },
-  isOnboardingCompleted: {
-    type: Boolean,
-    default: false
-  },
   createdAt: {
     type: Date,
     default: Date.now
