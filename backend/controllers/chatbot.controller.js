@@ -506,7 +506,8 @@ exports.deleteSession = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid session ID format' });
     }
     
-    const chatSession = await ChatbotSession.findOne({
+    // Use the session from middleware if available, otherwise find it
+    const chatSession = req.chatSession || await ChatbotSession.findOne({
       _id: sessionId,
       userId: req.user.userId
     });
@@ -519,13 +520,21 @@ exports.deleteSession = async (req, res, next) => {
       return;
     }
     
-    await chatSession.deleteOne();
+    // Use findByIdAndDelete instead of deleteOne on the instance
+    await ChatbotSession.findByIdAndDelete(sessionId);
+    
+    // Clear cache if using cache
+    const cacheKey = `chat_session_${sessionId}`;
+    if (chatbotCache && chatbotCache.get) {
+      chatbotCache.del(cacheKey);
+    }
     
     res.status(200).json({
       message: 'Chat session deleted successfully',
       sessionId
     });
   } catch (error) {
+    console.error('Error deleting chat session:', error);
     next(error);
   }
 };
