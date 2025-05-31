@@ -506,8 +506,7 @@ exports.deleteSession = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid session ID format' });
     }
     
-    // Use the session from middleware if available, otherwise find it
-    const chatSession = req.chatSession || await ChatbotSession.findOne({
+    const chatSession = await ChatbotSession.findOne({
       _id: sessionId,
       userId: req.user.userId
     });
@@ -520,21 +519,13 @@ exports.deleteSession = async (req, res, next) => {
       return;
     }
     
-    // Use findByIdAndDelete instead of deleteOne on the instance
-    await ChatbotSession.findByIdAndDelete(sessionId);
-    
-    // Clear cache if using cache
-    const cacheKey = `chat_session_${sessionId}`;
-    if (chatbotCache && chatbotCache.get) {
-      chatbotCache.del(cacheKey);
-    }
+    await chatSession.deleteOne();
     
     res.status(200).json({
       message: 'Chat session deleted successfully',
       sessionId
     });
   } catch (error) {
-    console.error('Error deleting chat session:', error);
     next(error);
   }
 };
@@ -585,7 +576,7 @@ function convertMarkdownTablesToHTML(text) {
       // Add header row
       htmlTable += '<thead><tr>';
       headers.forEach(header => {
-        htmlTable += `<th style="background-color: #f2f2f2; text-align: left; padding: 10px; border: 1px solid #ddd;">${sanitizeHTML(header)}</th>`;
+        htmlTable += `<th style="text-align: left; padding: 10px; border: 1px solid #ddd;">${sanitizeHTML(header)}</th>`;
       });
       htmlTable += '</tr></thead>';
       
