@@ -191,12 +191,15 @@ exports.submitQuery = async (req, res, next) => {
     
     // Check if headers have already been sent before sending response
     if (!res.headersSent) {
-      res.status(200).json({
+      const responseJson = {
         response: finalResponse,
         sessionId: chatSession._id,
         conversationId: chatSession.conversationId,
-        profileStatus
-      });
+      };
+      if (!profileStatus.complete) {
+        responseJson.profileStatus = profileStatus;
+      }
+      res.status(200).json(responseJson);
     }
   } catch (error) {
     console.error('Chatbot error:', error);
