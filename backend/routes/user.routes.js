@@ -21,10 +21,10 @@ router.post(
     body('demographic').optional(),
     body('psychological').optional(),
     body('ethnographic').optional(),
-    body('financialGoals').optional().isArray().withMessage('वित्तीय लक्ष्य एक सरणी होनी चाहिए'),
-    body('name').optional().notEmpty().withMessage('नाम खाली नहीं हो सकता'),
-    body('age').optional().isInt({ min: 18, max: 120 }).withMessage('आयु 18 और 120 के बीच होनी चाहिए'),
-    body('income').optional().isNumeric().withMessage('आय एक संख्या होनी चाहिए')
+    body('financialGoals').optional().isArray().withMessage('Financial goals must be an array'),
+    body('name').optional().notEmpty().withMessage('Name cannot be empty'),
+    body('age').optional().isInt({ min: 18, max: 120 }).withMessage('Age must be between 18 and 120'),
+    body('income').optional().isNumeric().withMessage('Income must be a number')
   ],
   userController.submitOnboarding
 );

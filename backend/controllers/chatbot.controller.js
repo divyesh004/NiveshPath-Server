@@ -71,35 +71,11 @@ exports.submitQuery = async (req, res, next) => {
     // Check profile completeness
     const profileStatus = checkProfileCompleteness(userProfile);
     
-    // If profile is incomplete and query is not about completing profile, suggest completing profile
+    // If profile is incomplete and query is not about completing profile, add a note but still process the query
+    let profileIncompleteNote = '';
     if (!profileStatus.complete && !query.toLowerCase().includes('profile')) {
-      // Prepare a response encouraging user to complete their profile
-      const incompleteProfileResponse = {
-        text: `Your profile is currently incomplete (${profileStatus.completionPercentage}% complete). For better financial advice, please add the following information to your profile: ${profileStatus.missingFields.join(', ')}. Would you like to update your profile now?`,
-        profileStatus
-      };
-      
-      // Save the chat session
-      const chatSession = new ChatbotSession({
-        userId: req.user.userId,
-        query,
-        response: incompleteProfileResponse.text,
-        context: { profileStatus },
-        conversationId: conversationId || new mongoose.Types.ObjectId()
-      });
-      
-      await chatSession.save();
-      
-      // Check if headers have already been sent before sending response
-      if (!res.headersSent) {
-        return res.status(200).json({
-          response: incompleteProfileResponse.text,
-          sessionId: chatSession._id,
-          conversationId: chatSession.conversationId,
-          profileStatus
-        });
-      }
-      return;
+      // Create a note about incomplete profile to add to the response later
+      profileIncompleteNote = `Note: Your profile is currently incomplete (${profileStatus.completionPercentage}% complete). For better financial advice, consider adding the following information to your profile: ${profileStatus.missingFields.join(', ')}. `;
     }
     
     // Check if query is about future planning or investment recommendations
@@ -143,35 +119,10 @@ exports.submitQuery = async (req, res, next) => {
                                     query.toLowerCase().includes('share or fund') ||
                                     query.toLowerCase().includes('direct equity');
     
-    // If it's a future planning query but profile is incomplete, provide specific guidance
+    // If it's a future planning query but profile is incomplete, add a note but still process the query
     if (isFuturePlanQuery && !profileStatus.complete) {
       const missingFieldsText = profileStatus.missingFields.join(', ');
-      const incompleteProfileResponse = {
-        text: `You have asked about future financial planning, but your profile is currently incomplete (${profileStatus.completionPercentage}% complete). To provide personalized financial advice, we need the following information in your profile: ${missingFieldsText}. Would you like to update your profile now?`,
-        profileStatus
-      };
-      
-      // Save the chat session
-      const chatSession = new ChatbotSession({
-        userId: req.user.userId,
-        query,
-        response: incompleteProfileResponse.text,
-        context: { profileStatus, isFuturePlanQuery: true },
-        conversationId: conversationId || new mongoose.Types.ObjectId()
-      });
-      
-      await chatSession.save();
-      
-      // Check if headers have already been sent before sending response
-      if (!res.headersSent) {
-        return res.status(200).json({
-          response: incompleteProfileResponse.text,
-          sessionId: chatSession._id,
-          conversationId: chatSession.conversationId,
-          profileStatus
-        });
-      }
-      return;
+      profileIncompleteNote = `Note: You have asked about future financial planning, but your profile is currently incomplete (${profileStatus.completionPercentage}% complete). For more personalized financial advice, consider adding the following information to your profile: ${missingFieldsText}. `;
     }
     
     // Prepare context for the AI with personalized information
@@ -196,35 +147,10 @@ exports.submitQuery = async (req, res, next) => {
       }
     };
     
-    // If it's an investment query but profile is incomplete, provide specific guidance
+    // If it's an investment query but profile is incomplete, add a note but still process the query
     if (isInvestmentQuery && !profileStatus.complete) {
       const missingFieldsText = profileStatus.missingFields.join(', ');
-      const incompleteProfileResponse = {
-        text: `You have asked about investment options, but your profile is currently incomplete (${profileStatus.completionPercentage}% complete). To provide personalized investment advice, we need the following information in your profile: ${missingFieldsText}. Would you like to update your profile now?`,
-        profileStatus
-      };
-      
-      // Save the chat session
-      const chatSession = new ChatbotSession({
-        userId: req.user.userId,
-        query,
-        response: incompleteProfileResponse.text,
-        context: { profileStatus, isInvestmentQuery: true },
-        conversationId: conversationId || new mongoose.Types.ObjectId()
-      });
-      
-      await chatSession.save();
-      
-      // Check if headers have already been sent before sending response
-      if (!res.headersSent) {
-        return res.status(200).json({
-          response: incompleteProfileResponse.text,
-          sessionId: chatSession._id,
-          conversationId: chatSession.conversationId,
-          profileStatus
-        });
-      }
-      return;
+      profileIncompleteNote = `Note: You have asked about investment options, but your profile is currently incomplete (${profileStatus.completionPercentage}% complete). For more personalized investment advice, consider adding the following information to your profile: ${missingFieldsText}. `;
     }
     
     // Get conversation history if conversationId is provided
@@ -246,11 +172,17 @@ exports.submitQuery = async (req, res, next) => {
     // Call Mistral AI API with conversation history
     const response = await callMistralAPI(query, context, previousMessages);
     
+    // Add profile incomplete note to the response if needed
+    let finalResponse = response.text;
+    if (profileIncompleteNote) {
+      finalResponse = profileIncompleteNote + finalResponse;
+    }
+    
     // Save the chat session
     const chatSession = new ChatbotSession({
       userId: req.user.userId,
       query,
-      response: response.text,
+      response: finalResponse,
       context,
       conversationId: conversationId || new mongoose.Types.ObjectId() // Create new conversation ID if not provided
     });
@@ -260,9 +192,10 @@ exports.submitQuery = async (req, res, next) => {
     // Check if headers have already been sent before sending response
     if (!res.headersSent) {
       res.status(200).json({
-        response: response.text,
+        response: finalResponse,
         sessionId: chatSession._id,
-        conversationId: chatSession.conversationId
+        conversationId: chatSession.conversationId,
+        profileStatus
       });
     }
   } catch (error) {

@@ -103,7 +103,7 @@ exports.checkOnboardingStatus = async (req, res, next) => {
     const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ 
-        message: 'उपयोगकर्ता नहीं मिला',
+        message: 'User not found',
         isOnboardingCompleted: false
       });
     }
@@ -213,7 +213,7 @@ exports.submitOnboarding = async (req, res, next) => {
     }
     
     res.status(200).json({
-      message: 'ऑनबोर्डिंग जानकारी सफलतापूर्वक सबमिट की गई',
+      message: 'Onboarding information submitted successfully',
       profile
     });
   } catch (error) {
